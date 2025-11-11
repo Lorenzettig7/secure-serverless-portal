@@ -10,17 +10,17 @@ data "aws_partition" "current" {}
 resource "aws_iam_openid_connect_provider" "github" {
   url = "https://token.actions.githubusercontent.com"
 
-  client_id_list = ["sts.amazonaws.com"]
+  client_id_list  = ["sts.amazonaws.com"]
   thumbprint_list = ["6938fd4d98bab03faadb97b34396831e3780aea1"] # GitHub’s OIDC root CA
-  tags = var.common_tags
+  tags            = var.common_tags
 }
 
 # 2) Permission Boundary for the deploy role (tight but demo-friendly)
 data "aws_iam_policy_document" "deploy_boundary" {
   # Allow CRUD for core services in this project
   statement {
-    sid     = "AllowCoreServices"
-    effect  = "Allow"
+    sid    = "AllowCoreServices"
+    effect = "Allow"
     actions = [
       "s3:*",
       "cloudfront:*",
@@ -61,9 +61,9 @@ data "aws_iam_policy_document" "deploy_boundary" {
 }
 
 resource "aws_iam_policy" "deploy_boundary" {
-  name        = local.boundary_nm
-  policy      = data.aws_iam_policy_document.deploy_boundary.json
-  tags        = var.common_tags
+  name   = local.boundary_nm
+  policy = data.aws_iam_policy_document.deploy_boundary.json
+  tags   = var.common_tags
 }
 
 # 3) Deploy role (assumed by GitHub Actions via OIDC)
@@ -99,8 +99,8 @@ resource "aws_iam_role" "deploy" {
 # Inline policy (scoped deploy powers)
 data "aws_iam_policy_document" "deploy_inline" {
   statement {
-    sid     = "AllowTypicalDeploy"
-    effect  = "Allow"
+    sid    = "AllowTypicalDeploy"
+    effect = "Allow"
     actions = [
       "s3:*",
       "cloudfront:*",
