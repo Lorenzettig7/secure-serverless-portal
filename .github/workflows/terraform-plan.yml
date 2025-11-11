@@ -1,0 +1,24 @@
+name: Terraform Plan
+on: [pull_request]
+jobs:
+  plan:
+    permissions:
+      id-token: write
+      contents: read
+      pull-requests: write
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+      - name: Configure AWS (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-region: us-east-1
+          role-to-assume: arn:aws:iam::<ACCOUNT_ID>:role/ssp-github-deploy-role
+      - name: Terraform Init/Validate/Plan
+        working-directory: infra
+        run: |
+          terraform init -upgrade
+          terraform fmt -check
+          terraform validate
+          terraform plan

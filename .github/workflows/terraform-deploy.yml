@@ -1,0 +1,23 @@
+name: Terraform Deploy
+on:
+  push:
+    branches: [main]
+jobs:
+  deploy:
+    permissions:
+      id-token: write
+      contents: read
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+      - name: Configure AWS (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-region: us-east-1
+          role-to-assume: arn:aws:iam::<ACCOUNT_ID>:role/ssp-github-deploy-role
+      - name: Terraform Apply
+        working-directory: infra
+        run: |
+          terraform init -upgrade
+          terraform apply -auto-approve
