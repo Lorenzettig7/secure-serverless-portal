@@ -1,23 +1,39 @@
 name: Terraform Deploy
+
 on:
   push:
-    branches: [main]
+    branches:
+      - main
+
+permissions:
+  id-token: write
+  contents: read
+
 jobs:
   deploy:
-    permissions:
-      id-token: write
-      contents: read
     runs-on: ubuntu-latest
+
     steps:
-      - uses: actions/checkout@v4
-      - uses: hashicorp/setup-terraform@v3
-      - name: Configure AWS (OIDC)
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
+          role-to-assume: arn:aws:iam::713881788173:role/ssp-github-deploy-role
           aws-region: us-east-1
-          role-to-assume: arn:aws:iam::<ACCOUNT_ID>:role/ssp-github-deploy-role
-      - name: Terraform Apply
-        working-directory: infra
+
+      - name: Deploy infrastructure
         run: |
-          terraform init -upgrade
+          cd infra
+          terraform init -reconfigure
+          terraform plan -input=false
           terraform apply -auto-approve
+
+      - name: Sync web and invalidate CloudFront
+        run: |
+          cd infra
+          WEB_BUCKET=$(terraform output -raw web_bucket)
+          DIST_ID=$(terraform output -raw cloudfront_distribution_id)
+          aws s3 sync ../apps/web "s3://${WEB_BUCKET}" --delete
+          aws cloudfront create-invalidation --distribution-id "$DIST_ID" --paths "/*"
