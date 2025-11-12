@@ -2,8 +2,7 @@ name: Terraform Deploy
 
 on:
   push:
-    branches:
-      - main
+    branches: [ main ]
 
 permissions:
   id-token: write
@@ -17,23 +16,35 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      # ✅ Install Terraform
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.13.4
+          cli_config_credentials_token: ""  # not needed with OIDC
+
+      # ✅ Configure AWS via OIDC
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: arn:aws:iam::713881788173:role/ssp-github-deploy-role
           aws-region: us-east-1
 
-      - name: Deploy infrastructure
+      - name: Terraform apply
+        working-directory: infra
         run: |
-          cd infra
           terraform init -reconfigure
           terraform plan -input=false
           terraform apply -auto-approve
 
-      - name: Sync web and invalidate CloudFront
+      - name: Sync web + invalidate CloudFront
+        working-directory: infra
         run: |
-          cd infra
           WEB_BUCKET=$(terraform output -raw web_bucket)
           DIST_ID=$(terraform output -raw cloudfront_distribution_id)
           aws s3 sync ../apps/web "s3://${WEB_BUCKET}" --delete
           aws cloudfront create-invalidation --distribution-id "$DIST_ID" --paths "/*"
+
+      - name: Show outputs
+        working-directory: infra
+        run: terraform output
