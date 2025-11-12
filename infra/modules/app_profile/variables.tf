@@ -1,0 +1,7 @@
+variable "project_prefix" { type = string }
+variable "region" { type = string }
+variable "common_tags" { type = map(string) }
+variable "user_pool_issuer_url" { type = string }
+variable "user_pool_client_id" { type = string }
+variable "private_subnet_ids" { type = list(string) }
+variable "lambda_security_group_id" { type = string }

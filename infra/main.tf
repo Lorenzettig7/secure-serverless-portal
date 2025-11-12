@@ -1,24 +1,67 @@
-module "cicd_iam" {
-  source         = "./modules/cicd_iam"
+data "aws_route53_zone" "primary" {
+  name         = var.hosted_zone_domain
+  private_zone = false
+}
+module "identity" {
+  source         = "./modules/identity"
   project_prefix = var.project_prefix
-  github_owner   = "Lorenzettig7"
-  github_repo    = "secure-serverless-portal"
   region         = var.region
-  common_tags    = local.common_tags
+  domain_name    = var.domain_name
+  common_tags    = var.common_tags
 }
 
-module "foundations" {
-  source         = "./modules/foundations"
+module "network" {
+  source         = "./modules/network"
   project_prefix = var.project_prefix
   region         = var.region
-  common_tags    = local.common_tags
+  common_tags    = var.common_tags
+}
+
+module "app_profile" {
+  source                   = "./modules/app_profile"
+  project_prefix           = var.project_prefix
+  region                   = var.region
+  common_tags              = var.common_tags
+  user_pool_issuer_url     = module.identity.issuer_url
+  user_pool_client_id      = module.identity.user_pool_client_id
+  private_subnet_ids       = module.network.private_subnet_ids
+  lambda_security_group_id = module.network.lambda_security_group_id
+}
+
+module "app_telemetry" {
+  source                   = "./modules/app_telemetry"
+  project_prefix           = var.project_prefix
+  region                   = var.region
+  common_tags              = var.common_tags
+  api_id                   = module.app_profile.api_id
+  authorizer_id            = module.app_profile.authorizer_id
+  profile_log_group_name   = module.app_profile.profile_log_group
+  private_subnet_ids       = module.network.private_subnet_ids
+  lambda_security_group_id = module.network.lambda_security_group_id
 }
 
 module "edge" {
   source         = "./modules/edge"
   project_prefix = var.project_prefix
   region         = var.region
-  domain_name    = "portal.secureschoolcloud.org"
-  hosted_zone_id = "Z09679523TY5GEYBHLDSS"
-  common_tags    = local.common_tags
+  domain_name    = var.domain_name
+  hosted_zone_id = data.aws_route53_zone.primary.zone_id
+  common_tags    = var.common_tags
+}
+
+# Security foundations (CloudTrail/Config/GuardDuty/SecurityHub/logs)
+module "foundations" {
+  source         = "./modules/foundations"
+  project_prefix = var.project_prefix
+  region         = var.region
+  common_tags    = var.common_tags
+}
+
+# CI/CD OIDC trust and deploy role
+module "cicd_iam" {
+  source         = "./modules/cicd_iam"
+  project_prefix = var.project_prefix
+  region         = var.region
+  common_tags    = var.common_tags
+  # add any other vars this module expects (e.g., repo owner/name) exactly as before
 }
