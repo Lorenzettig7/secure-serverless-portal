@@ -1,0 +1,54 @@
+<!doctype html>
+<html>
+  <body>
+    <script>
+      (async () => {
+        const qs = new URLSearchParams(window.location.search);
+        const code = qs.get("code");
+        if (!code) {
+          document.body.textContent = "Missing authorization code.";
+          return;
+        }
+        const verifier = localStorage.getItem("pkce_verifier");
+        if (!verifier) {
+          document.body.textContent = "Missing PKCE verifier.";
+          return;
+        }
+
+        const client_id   = "743jm6pl7ceft1mg0emvlcqr5e";
+        const redirectUri = "https://portal.secureschoolcloud.org/auth-callback.html";
+        const tokenEndpoint = "https://ssp-portal.auth.us-east-1.amazoncognito.com/oauth2/token";
+
+        const body = new URLSearchParams({
+          grant_type: "authorization_code",
+          client_id,
+          code,
+          code_verifier: verifier,
+          redirect_uri: redirectUri
+        });
+
+        const resp = await fetch(tokenEndpoint, {
+          method: "POST",
+          headers: { "Content-Type": "application/x-www-form-urlencoded" },
+          body
+        });
+
+        if (!resp.ok) {
+          const txt = await resp.text();
+          console.error("Token exchange failed:", txt);
+          document.body.textContent = "Login failed.";
+          return;
+        }
+
+        const tokens = await resp.json();
+        // Store tokens; SPA calls will send id_token as Bearer to API Gateway
+        localStorage.setItem("id_token", tokens.id_token);
+        localStorage.setItem("access_token", tokens.access_token);
+        localStorage.removeItem("pkce_verifier");
+
+        // Go to your app (profile page or home)
+        window.location = "/profile.html";
+      })();
+    </script>
+  </body>
+</html>

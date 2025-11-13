@@ -14,6 +14,17 @@ resource "aws_iam_role" "lambda" {
   })
   tags = var.common_tags
 }
+# Let Lambda create/delete ENIs in your VPC
+resource "aws_iam_role_policy_attachment" "lambda_vpc_access" {
+  role       = aws_iam_role.lambda.name
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole"
+}
+
+# (optional but fine to include) basic logs policy
+resource "aws_iam_role_policy_attachment" "lambda_basic" {
+  role       = aws_iam_role.lambda.name
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+}
 
 resource "aws_iam_role_policy" "lambda_policy" {
   name = "telemetry-inline"
@@ -44,13 +55,14 @@ resource "aws_iam_role_policy" "lambda_policy" {
 }
 
 resource "aws_lambda_function" "telemetry" {
-  function_name = "${var.project_prefix}-telemetry"
-  role          = aws_iam_role.lambda.arn
-  handler       = "telemetry_handler.lambda_handler"
-  runtime       = "python3.10"
-  filename      = "../../apps/lambda/telemetry_handler.zip"
-  timeout       = 15
-  memory_size   = 128
+  function_name    = "${var.project_prefix}-telemetry"
+  role             = aws_iam_role.lambda.arn
+  handler          = "telemetry_handler.lambda_handler"
+  runtime          = "python3.10"
+  filename         = "${path.root}/../apps/lambda/telemetry_handler.zip"
+  source_code_hash = filebase64sha256("${path.root}/../apps/lambda/telemetry_handler.zip")
+  timeout          = 15
+  memory_size      = 128
   vpc_config {
     subnet_ids         = var.private_subnet_ids
     security_group_ids = [var.lambda_security_group_id]

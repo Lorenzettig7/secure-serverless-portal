@@ -21,3 +21,7 @@ output "issuer_url" {
 output "hosted_ui_url" {
   value = "https://${aws_cognito_user_pool_domain.main.domain}.auth.${var.region}.amazoncognito.com/login?client_id=${aws_cognito_user_pool_client.app.id}&response_type=code&scope=openid+profile+email&redirect_uri=https://${var.domain_name}/auth-callback.html"
 }
+
+output "hosted_ui_domain" {
+  value = "${var.project_prefix}-portal.auth.${var.region}.amazoncognito.com"
+}

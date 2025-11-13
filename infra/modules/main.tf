@@ -15,13 +15,19 @@ module "foundations" {
 }
 
 module "edge" {
-  source         = "./modules/edge"
-  project_prefix = var.project_prefix
-  region         = var.region
-  domain_name    = "portal.secureschoolcloud.org"
-  hosted_zone_id = "Z09679523TY5GEYBHLDSS"
-  common_tags    = local.common_tags
+  source          = "./modules/edge"
+  project_prefix  = var.project_prefix
+  region          = var.region
+  domain_name     = var.domain_name
+  web_bucket_name = "${var.project_prefix}-web-${data.aws_caller_identity.current.account_id}"
+  acm_cert_arn    = aws_acm_certificate_validation.portal.certificate_arn # or your existing ref
+  logs_bucket     = "${var.project_prefix}-logs-${data.aws_caller_identity.current.account_id}"
+  common_tags     = local.common_tags
+
+  # 👇 NEW: strip scheme so CloudFront gets just the host
+  api_domain_name = replace(module.app_profile.api_base_url, "https://", "")
 }
+
 module "network" {
   source         = "./modules/network"
   project_prefix = var.project_prefix

@@ -1,0 +1,10 @@
+{
+  "UserPoolId": "us-east-1_NllzNi6wc",
+  "ClientId": "7b6b24a9cidt9tjltaqvdogp8l",
+  "SupportedIdentityProviders": ["COGNITO"],
+  "AllowedOAuthFlowsUserPoolClient": true,
+  "AllowedOAuthFlows": ["code","implicit"],
+  "AllowedOAuthScopes": ["openid","email","profile"],
+  "CallbackURLs": ["https://portal.secureschoolcloud.org/auth-callback.html"],
+  "LogoutURLs": ["https://portal.secureschoolcloud.org/"]
+}
