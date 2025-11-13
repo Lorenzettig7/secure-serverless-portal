@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Secure School Portal</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>body{font-family:system-ui,Arial;margin:3rem;} a.button{padding:.7rem 1rem;border:1px solid #333;border-radius:8px;text-decoration:none}</style>
+</head>
+<body>
+  <h1>Deployed via GitHub Actions 🚀</h1>
+
+  <p><a class="button" id="signin" href="#">Sign in with Cognito</a></p>
+
+  <script>
+    const hostedUi = "https://ssp-portal.auth.us-east-1.amazoncognito.com/oauth2/authorize";
+    const clientId = "743jm6pl7ceft1mg0emvlcqr5e";
+    const redirectUri = encodeURIComponent("https://portal.secureschoolcloud.org/auth/callback");
+    const scope = encodeURIComponent("openid email profile");
+
+    const loginUrl = `${hostedUi}?client_id=${clientId}&response_type=code&scope=${scope}&redirect_uri=${redirectUri}`;
+    document.getElementById("signin").setAttribute("href", loginUrl);
+  </script>
+</body>
+</html>
+
