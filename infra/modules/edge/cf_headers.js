@@ -8,5 +8,8 @@ function handler(event) {
   headers['referrer-policy'] = { value: 'no-referrer' };
   // adjust CSP to your needs; this is a sane default for static + API calls
   headers['content-security-policy'] = { value: "default-src 'self'; connect-src 'self' https://*.execute-api.us-east-1.amazonaws.com; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self'" };
+  connect-src ; https://*.execute-api.us-east-1.amazonaws.com https://ssp-portal.auth.us-east-1.amazoncognito.com;
+
+
   return response;
 }

@@ -1,14 +1,8 @@
 # infra/variables.tf
-variable "project_prefix" {
-  description = "Short name/prefix for all resources (e.g., ssp)"
-  type        = string
-}
 
-variable "region" {
-  description = "AWS region"
-  type        = string
-  default     = "us-east-1"
-}
+variable "github_owner" { type = string }
+variable "github_repo" { type = string }
+
 
 variable "domain_name" {
   description = "Public portal hostname used by Cognito redirects (e.g., portal.secureschoolcloud.org)"
@@ -31,3 +25,29 @@ variable "hosted_zone_domain" {
   type        = string
 }
 
+variable "region" {
+  description = "Primary AWS region for most resources"
+  type        = string
+  default     = "us-east-1"
+}
+
+variable "hosted_zone_id" {
+  description = "Public Route53 hosted zone ID for the domain's DNS"
+  type        = string
+}
+
+variable "project_prefix" {
+  description = "Prefix for naming (e.g., ssp)"
+  type        = string
+  default     = "ssp"
+}
+
+variable "api_base_url" {
+  description = "Base URL of the deployed API"
+  type        = string
+}
+
+variable "cognito_issuer" {
+  description = "Cognito issuer URL for JWT validation"
+  type        = string
+}

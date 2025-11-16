@@ -1,0 +1,9 @@
+<!doctype html><meta charset="utf-8"><title>Auth Callback</title>
+<body><h2>Signed in</h2><pre id=p>Waiting…</pre>
+<script>
+const p = new URLSearchParams(location.hash.slice(1) || location.search.slice(1));
+const id = p.get('id_token'); const ac = p.get('access_token'); const cd = p.get('code');
+document.getElementById('p').textContent = id ? ('id_token: '+id.slice(0,28)+'…')
+  : cd ? ('code: '+cd) : '(no token)';
+</script>
+</body>

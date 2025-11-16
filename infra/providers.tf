@@ -1,16 +1,16 @@
 terraform {
-  required_version = ">= 1.7.0"
   required_providers {
     aws = {
       source  = "hashicorp/aws"
-      version = "~> 5.61"
+      version = "~> 5.0"
+    }
+    archive = {
+      source  = "hashicorp/archive"
+      version = "~> 2.4" # any recent 2.x is fine
     }
   }
 }
 
-provider "aws" {
-  region = var.region
-}
 
 locals {
   project_prefix = var.project_prefix

@@ -1,6 +1,12 @@
 # app_telemetry/main.tf
 
 data "aws_caller_identity" "current" {}
+data "archive_file" "telemetry_zip" {
+  type        = "zip"
+  source_file = "${path.root}/../apps/lambda/telemetry_handler.py"
+  output_path = "${path.module}/build/telemetry_handler.zip"
+}
+
 
 resource "aws_iam_role" "lambda" {
   name = "${var.project_prefix}-telemetry-lambda-role"
@@ -14,6 +20,36 @@ resource "aws_iam_role" "lambda" {
   })
   tags = var.common_tags
 }
+# Let Lambda create/delete ENIs in your VPC
+resource "aws_iam_role_policy_attachment" "lambda_vpc_access" {
+  role       = aws_iam_role.lambda.name
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole"
+}
+
+# (optional but fine to include) basic logs policy
+resource "aws_iam_role_policy_attachment" "lambda_basic" {
+  role       = aws_iam_role.lambda.name
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+}
+resource "aws_iam_role_policy" "lambda_cloudtrail" {
+  name = "${var.project_prefix}-telemetry-cloudtrail"
+  role = aws_iam_role.lambda.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "cloudtrail:LookupEvents",
+        ]
+        # LookupEvents is not resource-scoped; must be "*"
+        Resource = "*"
+      }
+    ]
+  })
+}
+
 
 resource "aws_iam_role_policy" "lambda_policy" {
   name = "telemetry-inline"
@@ -44,22 +80,27 @@ resource "aws_iam_role_policy" "lambda_policy" {
 }
 
 resource "aws_lambda_function" "telemetry" {
-  function_name = "${var.project_prefix}-telemetry"
-  role          = aws_iam_role.lambda.arn
-  handler       = "telemetry_handler.lambda_handler"
-  runtime       = "python3.10"
-  filename      = "../../apps/lambda/telemetry_handler.zip"
-  timeout       = 15
-  memory_size   = 128
+  function_name    = "${var.project_prefix}-telemetry"
+  role             = aws_iam_role.lambda.arn
+  handler       = "telemetry_handler.handler"
+  runtime          = "python3.10"
+  timeout          = 15
+  memory_size      = 128
+  filename         = data.archive_file.telemetry_zip.output_path
+  source_code_hash = data.archive_file.telemetry_zip.output_base64sha256
+  publish          = true
   vpc_config {
     subnet_ids         = var.private_subnet_ids
     security_group_ids = [var.lambda_security_group_id]
   }
   environment {
     variables = {
-      LOG_GROUP = var.profile_log_group_name
+      LOG_GROUP      = var.profile_log_group_name  # or var.telemetry_log_group_name if you have that
+      ALLOWED_ORIGIN = "https://portal.secureschoolcloud.org"
+      MAX_EVENTS     = "20"
     }
   }
+
   tags = var.common_tags
 }
 
@@ -71,17 +112,24 @@ resource "aws_apigatewayv2_integration" "lambda" {
   payload_format_version = "2.0"
 }
 
-resource "aws_apigatewayv2_route" "activity" {
-  api_id             = var.api_id
-  route_key          = "GET /telemetry/activity"
-  target             = "integrations/${aws_apigatewayv2_integration.lambda.id}"
-  authorization_type = "JWT"
-  authorizer_id      = var.authorizer_id
-}
-
 resource "aws_lambda_permission" "allow_api" {
   function_name = aws_lambda_function.telemetry.function_name
   action        = "lambda:InvokeFunction"
   principal     = "apigateway.amazonaws.com"
   source_arn    = "arn:aws:execute-api:${var.region}:${data.aws_caller_identity.current.account_id}:${var.api_id}/*/*"
 }
+resource "aws_apigatewayv2_integration" "telemetry" {
+  api_id                 = var.api_id
+  integration_type       = "AWS_PROXY"
+  integration_uri        = aws_lambda_function.telemetry.invoke_arn
+  payload_format_version = "2.0"
+}
+
+resource "aws_apigatewayv2_route" "get_activity" {
+  api_id    = var.api_id
+  route_key = "GET /activity"
+  target    = "integrations/${aws_apigatewayv2_integration.telemetry.id}"
+  authorization_type = "JWT"
+  authorizer_id      = var.authorizer_id
+}
+

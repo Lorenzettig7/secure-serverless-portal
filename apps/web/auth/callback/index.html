@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Signing you in…</title></head>
+<body>
+  <h1>Signing you in…</h1>
+  <p id="msg" class="muted">Exchanging authorization code for tokens.</p>
+  <script>
+  (async () => {
+    try {
+      const params = new URLSearchParams(location.search);
+      const code = params.get("code");
+      if (!code) { document.getElementById("msg").textContent = "Missing ?code in URL."; return; }
+
+      const domain   = "https://ssp-portal.auth.us-east-1.amazoncognito.com";
+      const clientId = "743jm6pl7ceft1mg0emvlcqr5e";
+      const redirect = "https://portal.secureschoolcloud.org/auth/callback/"; // NOTE: trailing slash
+
+      const body = new URLSearchParams({
+        grant_type:   "authorization_code",
+        client_id:    clientId,
+        code:         code,
+        redirect_uri: redirect
+      });
+
+      const r = await fetch(`${domain}/oauth2/token`, {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body
+      });
+      const data = await r.json();
+      if (!r.ok) { document.getElementById("msg").textContent = "Token exchange failed: " + (data.error_description || JSON.stringify(data)); return; }
+
+      localStorage.setItem("id_token", data.id_token);
+      localStorage.setItem("access_token", data.access_token);
+      localStorage.setItem("expires_in", String(data.expires_in));
+      localStorage.setItem("token_time", String(Date.now()));
+
+      location.href = "/profile.html";
+    } catch (e) {
+      document.getElementById("msg").textContent = "Unexpected error: " + e;
+    }
+  })();
+  </script>
+</body>
+</html>

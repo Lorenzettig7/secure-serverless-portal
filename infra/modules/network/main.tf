@@ -68,3 +68,45 @@ resource "aws_vpc_endpoint" "dynamodb" {
   route_table_ids   = [aws_route_table.private.id]
   tags              = merge(var.common_tags, { Name = "${var.project_prefix}-dynamodb-endpoint" })
 }
+# Security group for interface endpoints (allow HTTPS from Lambda SG)
+resource "aws_security_group" "vpce_endpoints_sg" {
+  name        = "${var.project_prefix}-vpce-sg"
+  description = "SG for Interface VPC Endpoints"
+  vpc_id      = aws_vpc.main.id
+
+  # Lambda SG egress is already 443-anywhere; allow inbound from the VPC on 443
+  ingress {
+    description = "HTTPS from VPC"
+    from_port   = 443
+    to_port     = 443
+    protocol    = "tcp"
+    cidr_blocks = [aws_vpc.main.cidr_block]
+  }
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+}
+
+# CloudTrail interface endpoint
+resource "aws_vpc_endpoint" "cloudtrail" {
+  vpc_id              = aws_vpc.main.id
+  service_name        = "com.amazonaws.${var.region}.cloudtrail"
+  vpc_endpoint_type   = "Interface"
+  security_group_ids  = [aws_security_group.vpce_endpoints_sg.id]
+  subnet_ids          = [aws_subnet.private_a.id, aws_subnet.private_b.id]
+  private_dns_enabled = true
+}
+
+# CloudWatch Logs interface endpoint
+resource "aws_vpc_endpoint" "logs" {
+  vpc_id              = aws_vpc.main.id
+  service_name        = "com.amazonaws.${var.region}.logs"
+  vpc_endpoint_type   = "Interface"
+  security_group_ids  = [aws_security_group.vpce_endpoints_sg.id]
+  subnet_ids          = [aws_subnet.private_a.id, aws_subnet.private_b.id]
+  private_dns_enabled = true
+}

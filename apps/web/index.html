@@ -1,1 +1,16 @@
-<h1>Deployed via GitHub Actions 🚀</h1>
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Secure SchoolCloud</title></head>
+<body>
+  <h1>Deployed via GitHub Actions 🚀</h1>
+  <a id="signin" class="btn" href="#">Sign in with Cognito</a>
+  <script>
+    const hosted = "https://ssp-portal.auth.us-east-1.amazoncognito.com/oauth2/authorize";
+    const client = "743jm6pl7ceft1mg0emvlcqr5e";
+    const redirect = encodeURIComponent("https://portal.secureschoolcloud.org/auth/callback/");
+    const scope = encodeURIComponent("openid email profile");
+    document.getElementById("signin").href =
+      `${hosted}?client_id=${client}&response_type=code&scope=${scope}&redirect_uri=${redirect}`;
+  </script>
+</body>
+</html>

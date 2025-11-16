@@ -1,5 +1,11 @@
 data "aws_caller_identity" "current" {}
 
+data "archive_file" "auth_exchange" {
+  type        = "zip"
+  source_file = "${path.module}/../../../apps/lambda/auth_exchange.py"
+  output_path = "${path.module}/../../../apps/lambda/auth_exchange.zip"
+}
+
 # IAM role for the Profile Lambda
 resource "aws_iam_role" "lambda" {
   name = "${var.project_prefix}-profile-lambda-role"
@@ -12,6 +18,17 @@ resource "aws_iam_role" "lambda" {
     }]
   })
   tags = var.common_tags
+}
+# Let Lambda create/delete ENIs in your VPC
+resource "aws_iam_role_policy_attachment" "lambda_vpc_access" {
+  role       = aws_iam_role.lambda.name
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole"
+}
+
+# (optional but fine to include) basic logs policy
+resource "aws_iam_role_policy_attachment" "lambda_basic" {
+  role       = aws_iam_role.lambda.name
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
 }
 
 # Inline policy (least privilege for DynamoDB + logs)
@@ -36,14 +53,54 @@ resource "aws_iam_role_policy" "lambda_policy" {
     ]
   })
 }
+resource "aws_iam_role_policy" "lambda_dynamodb" {
+  name = "${var.project_prefix}-profile-ddb"
+  role = aws_iam_role.lambda.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "dynamodb:GetItem",
+          "dynamodb:PutItem",
+          "dynamodb:UpdateItem"
+        ]
+        Resource = var.profiles_table_arn
+      }
+    ]
+  })
+}
+resource "aws_iam_role_policy" "lambda_kms" {
+  name = "${var.project_prefix}-profile-kms"
+  role = aws_iam_role.lambda.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect   = "Allow"
+        Action   = [
+          "kms:Decrypt",
+          "kms:Encrypt",
+          "kms:GenerateDataKey*",
+          "kms:DescribeKey"
+        ]
+        Resource = var.profiles_kms_key_arn
+      }
+    ]
+  })
+}
 
 # Lambda function
 resource "aws_lambda_function" "profile" {
-  function_name = "${var.project_prefix}-profile"
-  role          = aws_iam_role.lambda.arn
-  handler       = "profile_handler.lambda_handler"
-  runtime       = "python3.10"
-  filename      = "${path.module}/../../apps/lambda/profile_handler.zip"
+  function_name    = "${var.project_prefix}-profile"
+  role             = aws_iam_role.lambda.arn
+  handler = "profile_handler.handler"
+  runtime          = "python3.10"
+  filename         = "${path.root}/../apps/lambda/profile_handler.zip"
+  source_code_hash = filebase64sha256("${path.root}/../apps/lambda/profile_handler.zip")
 
   vpc_config {
     subnet_ids         = var.private_subnet_ids
@@ -55,7 +112,10 @@ resource "aws_lambda_function" "profile" {
 
   environment {
     variables = {
-      TABLE_NAME = "${var.project_prefix}-profiles"
+      TABLE_NAME = var.profiles_table_name
+      ISSUER_URL = var.user_pool_issuer_url
+      CLIENT_ID  = var.user_pool_client_id
+      ALLOWED_ORIGIN = "https://portal.secureschoolcloud.org" 
     }
   }
 
@@ -64,10 +124,18 @@ resource "aws_lambda_function" "profile" {
 
 # API Gateway (HTTP API) shared by app routes
 resource "aws_apigatewayv2_api" "api" {
-  name          = "${var.project_prefix}-api"
+  name          = "ssp-telemetry-api"
   protocol_type = "HTTP"
-  tags          = var.common_tags
+
+  cors_configuration {
+    allow_credentials = true
+    allow_headers     = ["authorization", "content-type"]
+    allow_methods     = ["GET", "POST", "OPTIONS"]
+    allow_origins     = ["https://portal.secureschoolcloud.org"]
+    max_age           = 0
+  }
 }
+
 
 # JWT authorizer (Cognito)
 resource "aws_apigatewayv2_authorizer" "jwt" {
@@ -120,4 +188,33 @@ resource "aws_lambda_permission" "allow_api" {
   action        = "lambda:InvokeFunction"
   principal     = "apigateway.amazonaws.com"
   source_arn    = "${aws_apigatewayv2_api.api.execution_arn}/*/*"
+}
+resource "aws_lambda_function" "auth_exchange" {
+  function_name    = "${var.project_prefix}-auth-exchange"
+  filename         = data.archive_file.auth_exchange.output_path
+  source_code_hash = data.archive_file.auth_exchange.output_base64sha256
+  handler          = "auth_exchange.lambda_handler"
+  runtime          = "python3.10"
+  role             = aws_iam_role.lambda.arn
+
+  environment {
+    variables = {
+      COGNITO_DOMAIN = "${var.project_prefix}-portal.auth.${var.region}.amazoncognito.com"
+      CLIENT_ID      = var.user_pool_client_id
+      REDIRECT_URI   = "https://${var.domain_name}/auth/callback"
+    }
+  }
+}
+
+resource "aws_apigatewayv2_route" "auth_exchange" {
+  api_id    = aws_apigatewayv2_api.api.id
+  route_key = "GET /auth/callback"
+  target    = "integrations/${aws_apigatewayv2_integration.auth_exchange.id}"
+}
+
+resource "aws_apigatewayv2_integration" "auth_exchange" {
+  api_id                 = aws_apigatewayv2_api.api.id
+  integration_type       = "AWS_PROXY"
+  integration_uri        = aws_lambda_function.auth_exchange.invoke_arn
+  payload_format_version = "2.0"
 }

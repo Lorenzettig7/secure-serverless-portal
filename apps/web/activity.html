@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Activity</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; margin: 24px; color:#111; }
+    h1 { margin: 0 0 8px; }
+    #status { font-weight: 600; margin-bottom: 12px; }
+    .row { display: grid; grid-template-columns: 1fr; gap: 16px; }
+    @media (min-width: 900px) { .row { grid-template-columns: 2fr 1fr; } }
+    table { width: 100%; border-collapse: collapse; border: 1px solid #e5e7eb; }
+    th, td { padding: 8px 10px; border-bottom: 1px solid #f1f5f9; font-size: 14px; }
+    th { text-align: left; background: #f8fafc; position: sticky; top: 0; }
+    .card { border:1px solid #e5e7eb; padding:12px; border-radius:8px; background:#fff; }
+    pre { margin:0; max-height: 420px; overflow:auto; font-size: 12px; background:#0b1020; color:#eaeefb; padding:12px; border-radius:8px; }
+    .muted { color:#6b7280; }
+    .actions { display:flex; gap:8px; margin-bottom:8px; }
+    button { padding:6px 10px; border:1px solid #d1d5db; border-radius:6px; background:#fff; cursor:pointer; }
+    button:hover { background:#f9fafb; }
+    a { color:#2563eb; }
+  </style>
+</head>
+<body>
+  <h1>Activity</h1>
+  <div id="status" class="muted">Loading…</div>
+
+  <div class="row">
+    <div class="card">
+      <div class="actions">
+        <button id="refresh">Refresh</button>
+        <button id="copy">Copy JSON</button>
+        <span id="count" class="muted"></span>
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th style="width:210px">Time (UTC)</th>
+            <th>Event</th>
+            <th>Source</th>
+            <th>User</th>
+          </tr>
+        </thead>
+        <tbody id="tbl"></tbody>
+      </table>
+      <p class="muted" style="margin-top:8px">Showing the last ~15 minutes from CloudTrail.</p>
+      <p><a href="/profile.html">Back to Profile</a></p>
+    </div>
+
+    <div class="card">
+      <div class="actions"><span class="muted">Raw response</span></div>
+      <pre id="raw">{}</pre>
+    </div>
+  </div>
+
+<script>
+(() => {
+  const API = "https://gisdro12yf.execute-api.us-east-1.amazonaws.com";
+  const statusEl = document.getElementById("status");
+  const rawEl = document.getElementById("raw");
+  const tbl = document.getElementById("tbl");
+  const countEl = document.getElementById("count");
+
+  function getToken() {
+    // Try your consolidated token cache first if present
+    try {
+      const t = JSON.parse(localStorage.getItem("sc_tokens") || "{}");
+      if (t.access_token || t.id_token) return t.access_token || t.id_token;
+    } catch {}
+    // Fallback to previously saved keys
+    return localStorage.getItem("access_token") || localStorage.getItem("id_token") || "";
+  }
+
+  function setStatus(txt) { statusEl.textContent = `Status: ${txt}`; }
+
+  async function load() {
+    const token = getToken();
+    if (!token || (token.match(/\./g) || []).length !== 2) {
+      setStatus("No valid token found (login again)");
+      rawEl.textContent = JSON.stringify({error: "No token"}, null, 2);
+      tbl.innerHTML = "";
+      return;
+    }
+
+    setStatus("Loading…");
+    try {
+      const r = await fetch(`${API}/activity`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const txt = await r.text();
+      rawEl.textContent = txt;
+
+      if (!r.ok) {
+        setStatus(`${r.status} ${r.statusText}`);
+        tbl.innerHTML = "";
+        return;
+      }
+
+      const data = JSON.parse(txt);
+      const events = Array.isArray(data.events) ? data.events : [];
+      countEl.textContent = `${events.length} event(s)`;
+
+      if (!events.length) {
+        tbl.innerHTML = `<tr><td colspan="4" class="muted">No recent events.</td></tr>`;
+      } else {
+        tbl.innerHTML = events.map(e => `
+          <tr>
+            <td>${(e.time ?? "").replace("T", " ").replace("+00:00","")}</td>
+            <td>${e.name ?? ""}</td>
+            <td>${e.source ?? ""}</td>
+            <td>${e.username ?? ""}</td>
+          </tr>
+        `).join("");
+      }
+      setStatus(r.status);
+    } catch (err) {
+      setStatus("Network error");
+      rawEl.textContent = JSON.stringify({error: String(err)}, null, 2);
+      tbl.innerHTML = "";
+    }
+  }
+
+  document.getElementById("refresh").onclick = load;
+  document.getElementById("copy").onclick = async () => {
+    try {
+      await navigator.clipboard.writeText(rawEl.textContent);
+      statusEl.textContent = "Copied JSON to clipboard";
+      setTimeout(() => setStatus("Ready"), 1200);
+    } catch {}
+  };
+
+  window.addEventListener("load", load);
+})();
+</script>
+</body>
+</html>

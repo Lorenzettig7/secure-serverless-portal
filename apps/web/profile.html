@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Profile</title></head>
+<body>
+  <h1>Profile</h1>
+
+  <div id="status">Loading…</div>
+
+  <div id="profile" style="display:none;">
+    <pre id="current"></pre>
+    <label>Bio<br><textarea id="bio" rows="4" cols="50"></textarea></label><br>
+    <button id="save">Save</button>
+    <div id="saveStatus"></div>
+  </div>
+
+  <script>
+    const API_BASE = "https://gisdro12yf.execute-api.us-east-1.amazonaws.com"; // your API Gateway
+    const token = localStorage.getItem("id_token");
+    if (!token) { window.location.href = "/login.html"; }
+
+    const status = document.getElementById("status");
+    const profileBox = document.getElementById("profile");
+    const cur = document.getElementById("current");
+    const bio = document.getElementById("bio");
+    const saveBtn = document.getElementById("save");
+    const saveStatus = document.getElementById("saveStatus");
+
+    async function loadProfile() {
+      status.textContent = "Loading profile…";
+      const r = await fetch(`${API_BASE}/profile`, {
+        method: "GET",
+        headers: { "Authorization": `Bearer ${token}` }
+      });
+      if (!r.ok) {
+        status.textContent = `Failed to load profile (${r.status})`;
+        return;
+      }
+      const data = await r.json();
+      status.textContent = "";
+      profileBox.style.display = "block";
+      cur.textContent = JSON.stringify(data, null, 2);
+      bio.value = data.bio || "";
+    }
+
+    saveBtn.addEventListener("click", async () => {
+      saveStatus.textContent = "Saving…";
+      const r = await fetch(`${API_BASE}/profile`, {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${token}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ bio: bio.value })
+      });
+      if (!r.ok) {
+        saveStatus.textContent = `Save failed (${r.status})`;
+        return;
+      }
+      saveStatus.textContent = "Saved!";
+      await loadProfile();
+    });
+
+    loadProfile();
+  </script>
+</body>
+</html>
