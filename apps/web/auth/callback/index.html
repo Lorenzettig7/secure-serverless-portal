@@ -1,26 +1,45 @@
 <!doctype html>
 <html lang="en">
-<head>
-  <meta charset="utf-8" />
-  <title>Secure School Portal</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <style>body{font-family:system-ui,Arial;margin:3rem;} a.button{padding:.7rem 1rem;border:1px solid #333;border-radius:8px;text-decoration:none}</style>
-</head>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Signing you in…</title></head>
 <body>
-  <h1>Deployed via GitHub Actions 🚀</h1>
-
-  <p><a class="button" id="signin" href="#">Sign in with Cognito</a></p>
-
+  <h1>Signing you in…</h1>
+  <p id="msg" class="muted">Exchanging authorization code for tokens.</p>
   <script>
-    const hostedUi   = "https://ssp-portal.auth.us-east-1.amazoncognito.com/oauth2/authorize";
-    const clientId   = "743jm6pl7ceft1mg0emvlcqr5e";
-    const redirect   = encodeURIComponent("https://portal.secureschoolcloud.org/auth/callback/");
-    const scope      = encodeURIComponent("openid email profile");
-    const loginURL   = `${hostedUi}?client_id=${clientId}&response_type=code&scope=${scope}&redirect_uri=${redirect}`;
+  (async () => {
+    try {
+      const params = new URLSearchParams(location.search);
+      const code = params.get("code");
+      if (!code) { document.getElementById("msg").textContent = "Missing ?code in URL."; return; }
 
-   document.getElementById("signin").setAttribute("href", loginURL);
+      const domain   = "https://ssp-portal.auth.us-east-1.amazoncognito.com";
+      const clientId = "743jm6pl7ceft1mg0emvlcqr5e";
+      const redirect = "https://portal.secureschoolcloud.org/auth/callback/"; // NOTE: trailing slash
 
+      const body = new URLSearchParams({
+        grant_type:   "authorization_code",
+        client_id:    clientId,
+        code:         code,
+        redirect_uri: redirect
+      });
+
+      const r = await fetch(`${domain}/oauth2/token`, {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body
+      });
+      const data = await r.json();
+      if (!r.ok) { document.getElementById("msg").textContent = "Token exchange failed: " + (data.error_description || JSON.stringify(data)); return; }
+
+      localStorage.setItem("id_token", data.id_token);
+      localStorage.setItem("access_token", data.access_token);
+      localStorage.setItem("expires_in", String(data.expires_in));
+      localStorage.setItem("token_time", String(Date.now()));
+
+      location.href = "/profile.html";
+    } catch (e) {
+      document.getElementById("msg").textContent = "Unexpected error: " + e;
+    }
+  })();
   </script>
 </body>
 </html>
-

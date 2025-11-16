@@ -1,0 +1,14 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Redirecting…</title></head>
+<body>
+<script>
+  const domain   = "https://ssp-portal.auth.us-east-1.amazoncognito.com";
+  const clientId = "743jm6pl7ceft1mg0emvlcqr5e";
+  const redirect = "https://portal.secureschoolcloud.org/auth/callback/";
+  const scopes   = "openid+email+profile";
+  const url = `${domain}/oauth2/authorize?response_type=code&client_id=${clientId}&redirect_uri=${encodeURIComponent(redirect)}&scope=${scopes}`;
+  window.location.replace(url);
+</script>
+</body>
+</html>

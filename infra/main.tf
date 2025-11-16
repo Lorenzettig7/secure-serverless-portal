@@ -42,7 +42,7 @@ module "network" {
 
 # Edge (S3+OAC, CF, WAF, ACM, Route53)
 data "aws_route53_zone" "public" {
-  name         = "secureschoolcloud.org."  # <-- your zone (note the trailing dot)
+  name         = "secureschoolcloud.org." # <-- your zone (note the trailing dot)
   private_zone = false
 }
 locals {
@@ -58,11 +58,11 @@ module "edge" {
   logs_bucket     = module.foundations.logs_bucket
   api_domain_name = replace(module.app_profile.api_base_url, "https://", "")
   common_tags     = local.common_tags
-  acm_cert_arn = aws_acm_certificate.portal.arn
+  acm_cert_arn    = aws_acm_certificate.portal.arn
 
   providers = {
-    aws           = aws            # default
-    aws.us_east_1 = aws.us_east_1  # alias
+    aws           = aws           # default
+    aws.us_east_1 = aws.us_east_1 # alias
   }
 }
 
@@ -87,6 +87,9 @@ module "app_profile" {
   lambda_security_group_id = module.network.lambda_security_group_id
   domain_name              = var.domain_name
   issuer_url               = module.identity.issuer_url
+  profiles_table_name = module.data.profiles_table_name
+  profiles_table_arn  = module.data.profiles_table_arn
+  profiles_kms_key_arn = module.data.profiles_kms_key_arn
 }
 
 # App: Telemetry (Lambda + API route; reuses app_profile’s API + authorizer)
@@ -107,7 +110,7 @@ resource "aws_acm_certificate" "portal" {
   provider                  = aws.us_east_1
   domain_name               = var.domain_name
   validation_method         = "DNS"
-  subject_alternative_names = []           # add wildcards or extras if you want
+  subject_alternative_names = [] # add wildcards or extras if you want
   lifecycle {
     create_before_destroy = true
   }
@@ -140,3 +143,9 @@ resource "aws_acm_certificate_validation" "portal" {
   ]
 }
 
+module "data" {
+  source          = "./modules/data"
+  project_prefix  = var.project_prefix
+  api_base_url    = var.api_base_url
+  cognito_issuer  = var.cognito_issuer
+}

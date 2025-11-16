@@ -53,12 +53,51 @@ resource "aws_iam_role_policy" "lambda_policy" {
     ]
   })
 }
+resource "aws_iam_role_policy" "lambda_dynamodb" {
+  name = "${var.project_prefix}-profile-ddb"
+  role = aws_iam_role.lambda.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "dynamodb:GetItem",
+          "dynamodb:PutItem",
+          "dynamodb:UpdateItem"
+        ]
+        Resource = var.profiles_table_arn
+      }
+    ]
+  })
+}
+resource "aws_iam_role_policy" "lambda_kms" {
+  name = "${var.project_prefix}-profile-kms"
+  role = aws_iam_role.lambda.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect   = "Allow"
+        Action   = [
+          "kms:Decrypt",
+          "kms:Encrypt",
+          "kms:GenerateDataKey*",
+          "kms:DescribeKey"
+        ]
+        Resource = var.profiles_kms_key_arn
+      }
+    ]
+  })
+}
 
 # Lambda function
 resource "aws_lambda_function" "profile" {
   function_name    = "${var.project_prefix}-profile"
   role             = aws_iam_role.lambda.arn
-  handler          = "profile_handler.lambda_handler"
+  handler = "profile_handler.handler"
   runtime          = "python3.10"
   filename         = "${path.root}/../apps/lambda/profile_handler.zip"
   source_code_hash = filebase64sha256("${path.root}/../apps/lambda/profile_handler.zip")
@@ -73,7 +112,10 @@ resource "aws_lambda_function" "profile" {
 
   environment {
     variables = {
-      TABLE_NAME = "${var.project_prefix}-profiles"
+      TABLE_NAME = var.profiles_table_name
+      ISSUER_URL = var.user_pool_issuer_url
+      CLIENT_ID  = var.user_pool_client_id
+      ALLOWED_ORIGIN = "https://portal.secureschoolcloud.org" 
     }
   }
 
@@ -82,10 +124,18 @@ resource "aws_lambda_function" "profile" {
 
 # API Gateway (HTTP API) shared by app routes
 resource "aws_apigatewayv2_api" "api" {
-  name          = "${var.project_prefix}-api"
+  name          = "ssp-telemetry-api"
   protocol_type = "HTTP"
-  tags          = var.common_tags
+
+  cors_configuration {
+    allow_credentials = true
+    allow_headers     = ["authorization", "content-type"]
+    allow_methods     = ["GET", "POST", "OPTIONS"]
+    allow_origins     = ["https://portal.secureschoolcloud.org"]
+    max_age           = 0
+  }
 }
+
 
 # JWT authorizer (Cognito)
 resource "aws_apigatewayv2_authorizer" "jwt" {

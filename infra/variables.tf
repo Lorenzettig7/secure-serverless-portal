@@ -41,3 +41,13 @@ variable "project_prefix" {
   type        = string
   default     = "ssp"
 }
+
+variable "api_base_url" {
+  description = "Base URL of the deployed API"
+  type        = string
+}
+
+variable "cognito_issuer" {
+  description = "Cognito issuer URL for JWT validation"
+  type        = string
+}

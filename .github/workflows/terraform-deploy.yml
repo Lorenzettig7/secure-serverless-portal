@@ -30,12 +30,19 @@ jobs:
           role-to-assume: arn:aws:iam::713881788173:role/ssp-github-deploy-role
           aws-region: us-east-1
 
-      - name: Terraform apply (edge only)
+      - name: Terraform Init
         working-directory: infra
-        run: |
-          terraform init -reconfigure
-          terraform plan -target=module.edge -refresh=false -input=false -out=tfedge.plan
-          terraform apply -auto-approve tfedge.plan
+        run: terraform init -reconfigure
+
+      - name: Terraform Plan
+        working-directory: infra
+        run: terraform plan -out=plan.out \
+        -var-file="../terraform.tfvars"
+
+      - name: Terraform Apply
+        working-directory: infra
+        run: terraform apply -auto-approve -var-file="../terraform.tfvars" plan.out
+
 
       - name: Sync web + invalidate CloudFront
         working-directory: infra

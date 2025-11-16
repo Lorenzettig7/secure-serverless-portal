@@ -32,3 +32,4 @@ output "hosted_ui_login_url" {
     module.identity.user_pool_client_id,
     urlencode("https://${var.domain_name}/auth-callback.html")
   )
+}

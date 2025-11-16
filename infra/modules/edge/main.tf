@@ -76,19 +76,22 @@ resource "aws_cloudfront_distribution" "dist" {
 
   # Static site default
   default_cache_behavior {
-    target_origin_id       = "web-origin"
-    viewer_protocol_policy = "redirect-to-https"
+  target_origin_id       = "web-origin"
+  viewer_protocol_policy = "redirect-to-https"
+  allowed_methods        = ["GET", "HEAD", "OPTIONS"]
+  cached_methods         = ["GET", "HEAD"]
 
-    allowed_methods = ["GET", "HEAD", "OPTIONS"]
-    cached_methods  = ["GET", "HEAD"]
+  cache_policy_id          = "658327ea-f89d-4fab-a63d-7e88639e58f6" # CachingOptimized
+  origin_request_policy_id = "88a5eaf4-2fd4-4709-b370-b4c650ea3fcf" # CORS-S3Origin
+  response_headers_policy_id = "67f7725c-6f97-4210-82d7-5512b31e9d03" # SecurityHeaders
 
-    # AWS managed policies
-    cache_policy_id            = "658327ea-f89d-4fab-a63d-7e88639e58f6"  # CachingOptimized
-    origin_request_policy_id   = "88a5eaf4-2fd4-4709-b370-b4c650ea3fcf"  # CORS-S3Origin
-    response_headers_policy_id = "67f7725c-6f97-4210-82d7-5512b31e9d03"  # SecurityHeaders
+  compress = true
 
-    compress = true
+  function_association {
+    event_type   = "viewer-request"
+    function_arn = aws_cloudfront_function.rewrite_index.arn
   }
+}
 
   # API under /api/*
   ordered_cache_behavior {
@@ -103,19 +106,6 @@ resource "aws_cloudfront_distribution" "dist" {
     origin_request_policy_id = "216adef6-5c7f-47e4-b989-5492eafa07d3"  # AllViewerExceptHostHeader
 
     compress = true
-  }
-
-  # --- SPA fallbacks (serve index.html on deep links) ---
-  custom_error_response {
-    error_code         = 404
-    response_code      = 200
-    response_page_path = "/index.html"
-  }
-
-  custom_error_response {
-    error_code         = 403
-    response_code      = 200
-    response_page_path = "/index.html"
   }
 
   # Keep it simple: skip logging/price_class for now to avoid extra constraints
@@ -133,4 +123,11 @@ resource "aws_cloudfront_distribution" "dist" {
   }
 
   tags = var.common_tags
+}
+resource "aws_cloudfront_function" "rewrite_index" {
+  name    = "ssp-rewrite-index"   # <- must match the existing function name
+  runtime = "cloudfront-js-1.0"
+  comment = "Append /index.html for extensionless paths"
+  publish = true
+  code    = file("${path.module}/rewrite-index.js")
 }

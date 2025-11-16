@@ -36,10 +36,11 @@ resource "aws_cognito_user_pool_client" "app" {
   allowed_oauth_scopes                 = ["openid", "email", "profile"]
   generate_secret                      = false
 
-  callback_urls        = ["https://${var.domain_name}/auth/callback"]
-  default_redirect_uri = "https://${var.domain_name}/auth/callback"
+  callback_urls        = ["https://${var.domain_name}/auth/callback/"]
+  default_redirect_uri = "https://${var.domain_name}/auth/callback/"
   logout_urls          = ["https://${var.domain_name}/"]
 }
+
 
 
 # --------------------
