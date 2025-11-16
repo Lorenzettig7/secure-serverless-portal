@@ -36,13 +36,12 @@ jobs:
 
       - name: Terraform Plan
         working-directory: infra
-        run: terraform plan -out=plan.out \
-        -var-file="../terraform.tfvars"
+        run: terraform plan -out=plan.out -var-file="../terraform.tfvars"
 
-       - name: Terraform Apply
+      - name: Terraform Apply
         working-directory: infra
         run: terraform apply --auto-approve --var-file="../terraform.tfvars" plan.out
-
+        
       - name: Sync web + invalidate CloudFront
         shell: bash
         run: |
