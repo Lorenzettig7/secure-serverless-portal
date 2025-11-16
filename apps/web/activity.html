@@ -5,133 +5,234 @@
   <title>Activity</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <style>
-    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; margin: 24px; color:#111; }
-    h1 { margin: 0 0 8px; }
-    #status { font-weight: 600; margin-bottom: 12px; }
-    .row { display: grid; grid-template-columns: 1fr; gap: 16px; }
-    @media (min-width: 900px) { .row { grid-template-columns: 2fr 1fr; } }
-    table { width: 100%; border-collapse: collapse; border: 1px solid #e5e7eb; }
-    th, td { padding: 8px 10px; border-bottom: 1px solid #f1f5f9; font-size: 14px; }
-    th { text-align: left; background: #f8fafc; position: sticky; top: 0; }
-    .card { border:1px solid #e5e7eb; padding:12px; border-radius:8px; background:#fff; }
-    pre { margin:0; max-height: 420px; overflow:auto; font-size: 12px; background:#0b1020; color:#eaeefb; padding:12px; border-radius:8px; }
-    .muted { color:#6b7280; }
-    .actions { display:flex; gap:8px; margin-bottom:8px; }
-    button { padding:6px 10px; border:1px solid #d1d5db; border-radius:6px; background:#fff; cursor:pointer; }
-    button:hover { background:#f9fafb; }
-    a { color:#2563eb; }
+    :root { color-scheme: light dark; }
+    body { font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, Apple Color Emoji, Segoe UI Emoji;
+           margin: 24px; line-height: 1.35; }
+    h1 { margin: 0 0 10px; }
+    a { color: #4f46e5; text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    .toolbar { display: flex; gap: 16px; align-items: center; margin: 8px 0 16px; flex-wrap: wrap; }
+    .toolbar .group { display: inline-flex; gap: 8px; align-items: center; }
+    .muted { opacity: .7; font-size: .9rem; }
+    .card { border: 1px solid rgba(0,0,0,.15); border-radius: 10px; padding: 14px; margin: 12px 0; }
+    .actions { display: flex; gap: 10px; align-items: center; margin-bottom: 10px; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid rgba(0,0,0,.1); vertical-align: top; }
+    th { white-space: nowrap; }
+    code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: .9em; }
+    .status-ok { color: #16a34a; font-weight: 600; }
+    .status-bad { color: #dc2626; font-weight: 600; }
+    .pill { padding: 2px 8px; border-radius: 999px; border: 1px solid rgba(0,0,0,.15); }
+    .right { margin-left: auto; }
+    .controls input[type="number"] { width: 4.5rem; }
+    @media (max-width: 720px) {
+      body { margin: 16px; }
+      th:nth-child(3), td:nth-child(3) { word-break: break-word; }
+    }
   </style>
 </head>
 <body>
+
   <h1>Activity</h1>
-  <div id="status" class="muted">Loading…</div>
 
-  <div class="row">
-    <div class="card">
-      <div class="actions">
-        <button id="refresh">Refresh</button>
-        <button id="copy">Copy JSON</button>
-        <span id="count" class="muted"></span>
-      </div>
-      <table>
-        <thead>
-          <tr>
-            <th style="width:210px">Time (UTC)</th>
-            <th>Event</th>
-            <th>Source</th>
-            <th>User</th>
-          </tr>
-        </thead>
-        <tbody id="tbl"></tbody>
-      </table>
-      <p class="muted" style="margin-top:8px">Showing the last ~15 minutes from CloudTrail.</p>
-      <p><a href="/profile.html">Back to Profile</a></p>
+  <div class="toolbar">
+    <div class="group"><span class="muted">Status:</span> <span id="status" class="status-ok">—</span></div>
+    <div class="group">
+      <label for="windowSel" class="muted">Time window</label>
+      <select id="windowSel">
+        <option value="15">Last 15 min</option>
+        <option value="30" selected>Last 30 min</option>
+        <option value="60">Last 60 min</option>
+        <option value="120">Last 2 hours</option>
+      </select>
     </div>
-
-    <div class="card">
-      <div class="actions"><span class="muted">Raw response</span></div>
-      <pre id="raw">{}</pre>
+    <div class="group controls">
+      <label class="muted"><input type="checkbox" id="autorefresh" checked> Auto-refresh</label>
+      <label class="muted">every
+        <input type="number" id="intervalSec" min="5" max="120" step="5" value="30"> s
+      </label>
+      <button id="refreshBtn">Refresh now</button>
+    </div>
+    <div class="group right">
+      <a href="/profile.html">Back to Profile</a>
     </div>
   </div>
 
-<script>
-(() => {
-  const API = "https://gisdro12yf.execute-api.us-east-1.amazonaws.com";
-  const statusEl = document.getElementById("status");
-  const rawEl = document.getElementById("raw");
-  const tbl = document.getElementById("tbl");
-  const countEl = document.getElementById("count");
+  <!-- CloudTrail events (existing) -->
+  <div class="card">
+    <div class="actions">
+      <span class="muted">Backend Events (CloudTrail)</span>
+      <span id="tcount" class="muted right"></span>
+    </div>
+    <table>
+      <thead>
+        <tr>
+          <th style="width:210px">Time (UTC)</th>
+          <th>Event</th>
+          <th>Source / Actor</th>
+        </tr>
+      </thead>
+      <tbody id="tbl"></tbody>
+    </table>
+  </div>
 
-  function getToken() {
-    // Try your consolidated token cache first if present
+  <!-- NEW: Per-user actions from app logs -->
+  <div class="card">
+    <div class="actions">
+      <span class="muted">Your Recent Actions (from app logs)</span>
+      <span id="pcount" class="muted right"></span>
+    </div>
+    <table>
+      <thead>
+        <tr>
+          <th style="width:210px">Time (UTC)</th>
+          <th>Action</th>
+          <th>Details</th>
+        </tr>
+      </thead>
+      <tbody id="ptbl"></tbody>
+    </table>
+    <p class="muted" style="margin-top:8px">These are JSON audit lines (<code>PROFILE_READ</code> / <code>PROFILE_UPDATE</code>) emitted by the Profile Lambda and filtered by your user.</p>
+  </div>
+
+  <!-- Raw JSON (existing) -->
+  <div class="card">
+    <div class="actions"><span class="muted">Raw response</span></div>
+    <pre id="raw" style="white-space:pre-wrap;margin:0"></pre>
+  </div>
+
+<script>
+  // ==== CONFIG ====
+  // If you use a different API base, change this one line:
+  const API_BASE = (window.API_BASE || "https://gisdro12yf.execute-api.us-east-1.amazonaws.com").replace(/\/+$/,'');
+  const TOKEN = localStorage.getItem("id_token");
+
+  // ==== ELEMENTS ====
+  const tbl = document.getElementById("tbl");
+  const ptbl = document.getElementById("ptbl");
+  const raw = document.getElementById("raw");
+  const statusEl = document.getElementById("status");
+  const tcountEl = document.getElementById("tcount");
+  const pcountEl = document.getElementById("pcount");
+  const windowSel = document.getElementById("windowSel");
+  const autorefresh = document.getElementById("autorefresh");
+  const intervalSec = document.getElementById("intervalSec");
+  const refreshBtn = document.getElementById("refreshBtn");
+
+  // Persist user prefs
+  const PREFS_KEY = "activity_prefs";
+  function loadPrefs() {
     try {
-      const t = JSON.parse(localStorage.getItem("sc_tokens") || "{}");
-      if (t.access_token || t.id_token) return t.access_token || t.id_token;
+      const p = JSON.parse(localStorage.getItem(PREFS_KEY) || "{}");
+      if (p.minutes) windowSel.value = String(p.minutes);
+      if (p.autorefresh !== undefined) autorefresh.checked = !!p.autorefresh;
+      if (p.intervalSec) intervalSec.value = String(p.intervalSec);
     } catch {}
-    // Fallback to previously saved keys
-    return localStorage.getItem("access_token") || localStorage.getItem("id_token") || "";
+  }
+  function savePrefs() {
+    const p = {
+      minutes: parseInt(windowSel.value, 10),
+      autorefresh: autorefresh.checked,
+      intervalSec: parseInt(intervalSec.value, 10)
+    };
+    localStorage.setItem(PREFS_KEY, JSON.stringify(p));
   }
 
-  function setStatus(txt) { statusEl.textContent = `Status: ${txt}`; }
+  // Helpers
+  function fmt(s) {
+    return (s || "").replace("T"," ").replace("+00:00","");
+  }
+  function normalizeProfileEvent(e) {
+    // Accept either clean JSON from telemetry or a "raw" line with INFO\t{...}
+    if (e && typeof e === "object" && !e.raw) return e;
+    const raw = e?.raw || "";
+    const i = raw.indexOf("{");
+    if (i >= 0) {
+      try { return JSON.parse(raw.slice(i)); } catch {}
+    }
+    return { raw };
+  }
 
   async function load() {
-    const token = getToken();
-    if (!token || (token.match(/\./g) || []).length !== 2) {
-      setStatus("No valid token found (login again)");
-      rawEl.textContent = JSON.stringify({error: "No token"}, null, 2);
-      tbl.innerHTML = "";
-      return;
-    }
+    const minutes = parseInt(windowSel.value || "30", 10);
+    const url = `${API_BASE}/activity?minutes=${encodeURIComponent(minutes)}`;
+    statusEl.textContent = "Loading…";
 
-    setStatus("Loading…");
     try {
-      const r = await fetch(`${API}/activity`, {
-        headers: { Authorization: `Bearer ${token}` }
+      const r = await fetch(url, {
+        headers: { Authorization: "Bearer " + TOKEN }
       });
       const txt = await r.text();
-      rawEl.textContent = txt;
+      let data = {};
+      try { data = JSON.parse(txt); } catch { data = {}; }
 
-      if (!r.ok) {
-        setStatus(`${r.status} ${r.statusText}`);
-        tbl.innerHTML = "";
-        return;
-      }
+      // status
+      statusEl.textContent = r.ok ? "200" : String(r.status);
+      statusEl.className = r.ok ? "status-ok" : "status-bad";
 
-      const data = JSON.parse(txt);
+      // Raw
+      raw.textContent = txt;
+
+      // CloudTrail table (existing)
       const events = Array.isArray(data.events) ? data.events : [];
-      countEl.textContent = `${events.length} event(s)`;
-
+      tcountEl.textContent = `${events.length} event(s)`;
       if (!events.length) {
-        tbl.innerHTML = `<tr><td colspan="4" class="muted">No recent events.</td></tr>`;
+        tbl.innerHTML = `<tr><td colspan="3" class="muted">No recent backend events.</td></tr>`;
       } else {
-        tbl.innerHTML = events.map(e => `
+        tbl.innerHTML = events.map(ev => `
           <tr>
-            <td>${(e.time ?? "").replace("T", " ").replace("+00:00","")}</td>
-            <td>${e.name ?? ""}</td>
-            <td>${e.source ?? ""}</td>
-            <td>${e.username ?? ""}</td>
+            <td><code>${fmt(ev.time)}</code></td>
+            <td>${ev.name || ""}</td>
+            <td>${ev.source || ""}${ev.username ? ` — <span class="pill">${ev.username}</span>` : ""}</td>
           </tr>
         `).join("");
       }
-      setStatus(r.status);
+
+      // NEW: Profile events
+      const pe = Array.isArray(data.profileEvents) ? data.profileEvents.map(normalizeProfileEvent) : [];
+      pcountEl.textContent = `${pe.length} action(s)`;
+      if (!pe.length) {
+        ptbl.innerHTML = `<tr><td colspan="3" class="muted">No recent actions.</td></tr>`;
+      } else {
+        ptbl.innerHTML = pe.map(e => `
+          <tr>
+            <td><code>${fmt(e["@timestamp"])}</code></td>
+            <td>${e.event || ""}</td>
+            <td>${e.table ? `table=${e.table}` : ""}</td>
+          </tr>
+        `).join("");
+      }
+
     } catch (err) {
-      setStatus("Network error");
-      rawEl.textContent = JSON.stringify({error: String(err)}, null, 2);
-      tbl.innerHTML = "";
+      statusEl.textContent = "Error";
+      statusEl.className = "status-bad";
+      raw.textContent = String(err);
+      tbl.innerHTML = `<tr><td colspan="3" class="muted">Failed to load.</td></tr>`;
+      ptbl.innerHTML = `<tr><td colspan="3" class="muted">Failed to load.</td></tr>`;
     }
   }
 
-  document.getElementById("refresh").onclick = load;
-  document.getElementById("copy").onclick = async () => {
-    try {
-      await navigator.clipboard.writeText(rawEl.textContent);
-      statusEl.textContent = "Copied JSON to clipboard";
-      setTimeout(() => setStatus("Ready"), 1200);
-    } catch {}
-  };
+  // Auto-refresh
+  let timer = null;
+  function startTimer() {
+    stopTimer();
+    if (!autorefresh.checked) return;
+    const n = Math.min(120, Math.max(5, parseInt(intervalSec.value || "30", 10)));
+    timer = setInterval(load, n * 1000);
+  }
+  function stopTimer() {
+    if (timer) { clearInterval(timer); timer = null; }
+  }
 
-  window.addEventListener("load", load);
-})();
+  // Wire up controls
+  loadPrefs();
+  refreshBtn.addEventListener("click", () => { savePrefs(); load(); });
+  windowSel.addEventListener("change", () => { savePrefs(); load(); });
+  autorefresh.addEventListener("change", () => { savePrefs(); startTimer(); });
+  intervalSec.addEventListener("change", () => { savePrefs(); startTimer(); });
+
+  // Initial load
+  load().then(startTimer);
 </script>
 </body>
 </html>
