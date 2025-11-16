@@ -8,13 +8,10 @@ permissions:
   id-token: write
   contents: read
 
-<<<<<<< HEAD
-=======
 concurrency:
   group: portal-terraform
   cancel-in-progress: true
 
->>>>>>> 4f58476 (wip: local edits before rebase)
 env:
     TF_INPUT: false
     
@@ -46,19 +43,15 @@ jobs:
 
       - name: Terraform Plan
         working-directory: infra
-<<<<<<< HEAD
         run: terraform plan -out=plan.out -var-file="../terraform.tfvars"
 
       - name: Terraform Apply
         working-directory: infra
         run: terraform apply --auto-approve --var-file="../terraform.tfvars" plan.out
-=======
-        run: terraform plan -out=plan.out -input=false -lock-timeout=5m --var-file="../terraform.tfvars"
 
       - name: Terraform Apply
         working-directory: infra
         run: terraform apply -input=false -lock-timeout=5m --auto-approve --var-file="../terraform.tfvars" plan.out
->>>>>>> 4f58476 (wip: local edits before rebase)
         
       - name: Sync web + invalidate CloudFront
         shell: bash
