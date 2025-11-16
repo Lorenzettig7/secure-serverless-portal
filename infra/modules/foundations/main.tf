@@ -174,3 +174,35 @@ resource "aws_accessanalyzer_analyzer" "account" {
   type          = "ACCOUNT"
   tags          = var.common_tags
 }
+# Example critical managed rules
+resource "aws_config_config_rule" "s3_public_read_prohibited" {
+  name = "s3-bucket-public-read-prohibited"
+  source {
+    owner             = "AWS"
+    source_identifier = "S3_BUCKET_PUBLIC_READ_PROHIBITED"
+  }
+}
+
+resource "aws_config_config_rule" "s3_public_write_prohibited" {
+  name = "s3-bucket-public-write-prohibited"
+  source {
+    owner             = "AWS"
+    source_identifier = "S3_BUCKET_PUBLIC_WRITE_PROHIBITED"
+  }
+}
+
+resource "aws_config_config_rule" "root_mfa_enabled" {
+  name = "iam-root-mfa-enabled"
+  source {
+    owner             = "AWS"
+    source_identifier = "ROOT_ACCOUNT_MFA_ENABLED"
+  }
+}
+
+resource "aws_config_config_rule" "iam_no_inline_policies" {
+  name = "iam-user-no-policies-check"
+  source {
+    owner             = "AWS"
+    source_identifier = "IAM_USER_NO_POLICIES_CHECK"
+  }
+}

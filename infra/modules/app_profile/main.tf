@@ -1,10 +1,16 @@
 data "aws_caller_identity" "current" {}
 
+data "archive_file" "profile_zip" {
+  type        = "zip"
+  source_file = "${path.root}/../apps/lambda/profile_handler.py"
+  output_path = "${path.module}/build/profile_handler.zip"
+}
 data "archive_file" "auth_exchange" {
   type        = "zip"
-  source_file = "${path.module}/../../../apps/lambda/auth_exchange.py"
-  output_path = "${path.module}/../../../apps/lambda/auth_exchange.zip"
+  source_file = "${path.root}/../apps/lambda/auth_exchange.py"
+  output_path = "${path.module}/build/auth_exchange.zip"
 }
+
 
 # IAM role for the Profile Lambda
 resource "aws_iam_role" "lambda" {
@@ -80,8 +86,8 @@ resource "aws_iam_role_policy" "lambda_kms" {
     Version = "2012-10-17"
     Statement = [
       {
-        Effect   = "Allow"
-        Action   = [
+        Effect = "Allow"
+        Action = [
           "kms:Decrypt",
           "kms:Encrypt",
           "kms:GenerateDataKey*",
@@ -97,10 +103,10 @@ resource "aws_iam_role_policy" "lambda_kms" {
 resource "aws_lambda_function" "profile" {
   function_name    = "${var.project_prefix}-profile"
   role             = aws_iam_role.lambda.arn
-  handler = "profile_handler.handler"
+  filename         = data.archive_file.profile_zip.output_path
+  source_code_hash = data.archive_file.profile_zip.output_base64sha256
+  handler          = "profile_handler.handler"
   runtime          = "python3.10"
-  filename         = "${path.root}/../apps/lambda/profile_handler.zip"
-  source_code_hash = filebase64sha256("${path.root}/../apps/lambda/profile_handler.zip")
 
   vpc_config {
     subnet_ids         = var.private_subnet_ids
@@ -112,14 +118,38 @@ resource "aws_lambda_function" "profile" {
 
   environment {
     variables = {
-      TABLE_NAME = var.profiles_table_name
-      ISSUER_URL = var.user_pool_issuer_url
-      CLIENT_ID  = var.user_pool_client_id
-      ALLOWED_ORIGIN = "https://portal.secureschoolcloud.org" 
+      TABLE_NAME     = var.profiles_table_name
+      ISSUER_URL     = var.user_pool_issuer_url
+      CLIENT_ID      = var.user_pool_client_id
+      ALLOWED_ORIGIN = "https://portal.secureschoolcloud.org"
+      PK_NAME        = "id"
     }
   }
 
   tags = var.common_tags
+}
+resource "aws_iam_role_policy" "profile_least" {
+  name = "${var.project_prefix}-profile-least"
+  role = aws_iam_role.lambda.name # or aws_iam_role.profile.name if you used a different role resource
+
+  policy = jsonencode({
+    Version = "2012-10-17",
+    Statement = [
+      {
+        Sid      = "ProfilesTableRW",
+        Effect   = "Allow",
+        Action   = ["dynamodb:GetItem", "dynamodb:PutItem", "dynamodb:UpdateItem"],
+        Resource = var.profiles_table_arn # see note below
+      },
+      {
+        Sid      = "Logging",
+        Effect   = "Allow",
+        Action   = ["logs:CreateLogStream", "logs:PutLogEvents"],
+        Resource = "arn:aws:logs:${var.region}:${data.aws_caller_identity.current.account_id}:log-group:/aws/lambda/${aws_lambda_function.profile.function_name}:*"
+
+      }
+    ]
+  })
 }
 
 # API Gateway (HTTP API) shared by app routes

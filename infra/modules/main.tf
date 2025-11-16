@@ -45,7 +45,7 @@ module "app_profile" {
 
   private_subnet_ids       = module.network.private_subnet_ids
   lambda_security_group_id = module.network.lambda_security_group_id
-  profiles_table_name    = module.data.profiles_table_name
+  profiles_table_name      = module.data.profiles_table_name
 }
 module "app_telemetry" {
   source         = "./modules/app_telemetry"

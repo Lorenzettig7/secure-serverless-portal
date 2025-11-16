@@ -1,12 +1,10 @@
 # infra/modules/data/main.tf
 
 resource "aws_kms_key" "portal" {
-  description         = "CMK for portal DynamoDB table encryption"
-  deletion_window_in_days = 10
-  enable_key_rotation = true
-  tags = {
-    Name = "${var.project_prefix}-app-kms"
-  }
+  description             = "${var.project_prefix} profiles KMS"
+  deletion_window_in_days = 7
+  enable_key_rotation     = true
+  tags                    = var.common_tags
 }
 
 resource "aws_kms_alias" "portal" {
@@ -29,9 +27,7 @@ resource "aws_dynamodb_table" "profiles" {
     kms_key_arn = aws_kms_key.portal.arn
   }
 
-  tags = {
-    Name = "${var.project_prefix}-profiles"
-  }
+  tags = var.common_tags
 }
 
 resource "aws_ssm_parameter" "api_base_url" {

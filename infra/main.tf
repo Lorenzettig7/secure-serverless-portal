@@ -20,6 +20,7 @@ module "foundations" {
   project_prefix = var.project_prefix
   region         = var.region
   common_tags    = local.common_tags
+  alert_emails = ["lorenzettig7@gmail.com"] 
 }
 
 # CICD OIDC + deploy role (you already added this; keep it exactly like this)
@@ -87,9 +88,9 @@ module "app_profile" {
   lambda_security_group_id = module.network.lambda_security_group_id
   domain_name              = var.domain_name
   issuer_url               = module.identity.issuer_url
-  profiles_table_name = module.data.profiles_table_name
-  profiles_table_arn  = module.data.profiles_table_arn
-  profiles_kms_key_arn = module.data.profiles_kms_key_arn
+  profiles_table_name      = module.data.profiles_table_name
+  profiles_table_arn       = module.data.profiles_table_arn
+  profiles_kms_key_arn     = module.data.profiles_kms_key_arn
 }
 
 # App: Telemetry (Lambda + API route; reuses app_profile’s API + authorizer)
@@ -103,6 +104,7 @@ module "app_telemetry" {
   profile_log_group_name   = module.app_profile.profile_log_group
   private_subnet_ids       = module.network.private_subnet_ids
   lambda_security_group_id = module.network.lambda_security_group_id
+  telemetry_function_name  = "ssp-telemetry"
 }
 
 # Request cert in us-east-1 (CloudFront requirement)
@@ -144,8 +146,9 @@ resource "aws_acm_certificate_validation" "portal" {
 }
 
 module "data" {
-  source          = "./modules/data"
-  project_prefix  = var.project_prefix
-  api_base_url    = var.api_base_url
-  cognito_issuer  = var.cognito_issuer
+  source         = "./modules/data"
+  project_prefix = var.project_prefix
+  common_tags    = local.common_tags
+  api_base_url   = var.api_base_url
+  cognito_issuer = var.cognito_issuer
 }

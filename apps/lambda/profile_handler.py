@@ -1,97 +1,115 @@
-import json
+# profile_handler.py
 import os
+import json
 import logging
+import base64
+from datetime import datetime, timezone
 
 import boto3
+from botocore.exceptions import ClientError
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
-dynamodb = boto3.resource("dynamodb")
-table = dynamodb.Table(os.environ["TABLE_NAME"])
+DDB = boto3.resource("dynamodb")
+TABLE_NAME = os.environ.get("TABLE_NAME")
+ALLOWED_ORIGIN = os.environ.get("ALLOWED_ORIGIN", "*")
 
-ALLOWED_ORIGIN = os.environ.get("ALLOWED_ORIGIN", "https://portal.secureschoolcloud.org")
+TABLE = DDB.Table(TABLE_NAME)
 
+PK_NAME = os.environ.get("PK_NAME", "id")
 
-
-def _response(status_code: int, body: dict) -> dict:
+def _resp(status, body_obj):
     return {
-        "statusCode": status_code,
+        "statusCode": status,
         "headers": {
             "Content-Type": "application/json",
             "Access-Control-Allow-Origin": ALLOWED_ORIGIN,
             "Access-Control-Allow-Credentials": "true",
         },
-        "body": json.dumps(body),
+        "body": json.dumps(body_obj),
     }
 
-
-def handler(event, context):
-    """
-    Entry point for API Gateway HTTP API (JWT authorizer in front).
-    Supports:
-      - GET  /profile  -> read profile from DynamoDB
-      - POST /profile  -> update profile (bio) in DynamoDB
-    """
-    logger.info("EVENT: %s", json.dumps(event))
-
-    http = event.get("requestContext", {}).get("http", {})
-    method = http.get("method")
-
-    claims = (
+def _claims(event):
+    return (
         event.get("requestContext", {})
-        .get("authorizer", {})
-        .get("jwt", {})
-        .get("claims", {})
+             .get("authorizer", {})
+             .get("jwt", {})
+             .get("claims", {})
     )
 
-    user_id = claims.get("sub")
-    email = claims.get("email")
+def _sub_email(event):
+    c = _claims(event)
+    return c.get("sub"), c.get("email")
 
-    if not user_id:
-        return _response(400, {"error": "Missing user ID in token"})
+def _parse_body(event):
+    body = event.get("body")
+    if not body:
+        return {}
+    if event.get("isBase64Encoded"):
+        body = base64.b64decode(body).decode("utf-8", "ignore")
+    try:
+        return json.loads(body)
+    except Exception:
+        return {}
+
+def _log_event(name, sub, extra=None):
+    payload = {"event": name, "sub": sub, "ts": datetime.now(timezone.utc).isoformat()}
+    if extra:
+        payload.update(extra)
+    # IMPORTANT: JSON line so Logs Insights can parse
+    logger.info(json.dumps(payload))
+
+def _get_profile(sub, email_hint=None):
+    try:
+        r = TABLE.get_item(Key={PK_NAME: sub})
+        item = r.get("Item")
+        if item:
+            return item, "Loaded from DynamoDB"
+        # default view if nothing stored yet
+        return {
+            PK_NAME: sub,
+            "email": email_hint or "",
+            "bio": "",
+        }, "New profile (not yet saved)"
+    except ClientError as e:
+        logger.error("DynamoDB get_item failed: %s", e, exc_info=True)
+        raise
+
+def _put_profile(sub, email, bio):
+    item = {
+        PK_NAME: sub,
+        "email": email or "",
+        "bio": bio or "",
+        "updated_at": datetime.now(timezone.utc).isoformat(),
+    }
+    TABLE.put_item(Item=item)
+    return item
+
+def handler(event, context):
+    method = event.get("requestContext", {}).get("http", {}).get("method", "GET")
+    sub, email = _sub_email(event)
+    if not sub:
+        return _resp(401, {"message": "Unauthorized: missing sub"})
 
     if method == "GET":
-        # Read profile from DynamoDB
-        logger.info("PROFILE_READ for %s", user_id)
-        try:
-            resp = table.get_item(Key={"id": user_id})
-            item = resp.get("Item", {})
-        except Exception as e:
-            logger.error("Error reading profile from DynamoDB: %s", e)
-            return _response(500, {"error": "Failed to read profile"})
-
-        profile = {
-            "user_id": user_id,
-            "email": email,
-            "bio": item.get("bio", ""),
-            "note": "Loaded from DynamoDB",
-        }
-        return _response(200, profile)
+        profile, note = _get_profile(sub, email)
+        _log_event("PROFILE_READ", sub, {"table": TABLE_NAME})
+        return _resp(200, {
+            **profile,
+            "note": note
+        })
 
     if method == "POST":
-        # Update profile in DynamoDB
+        body = _parse_body(event)
+        bio = (body.get("bio") or "").strip()
         try:
-            raw_body = event.get("body") or "{}"
-            body = json.loads(raw_body)
-        except json.JSONDecodeError:
-            return _response(400, {"error": "Invalid JSON body"})
+            saved = _put_profile(sub, email, bio)
+            _log_event("PROFILE_UPDATE", sub, {"table": TABLE_NAME})
+            return _resp(200, {"ok": True, **saved})
+        except ClientError as e:
+            logger.error("DynamoDB put_item failed: %s", e, exc_info=True)
+            return _resp(500, {"message": "Failed to save profile"})
 
-        bio = body.get("bio", "")
-
-        try:
-            table.put_item(
-                Item={
-                    "id": user_id,
-                    "email": email,
-                    "bio": bio,
-                }
-            )
-            logger.info("PROFILE_UPDATE for %s", user_id)
-        except Exception as e:
-            logger.error("Error updating profile in DynamoDB: %s", e)
-            return _response(500, {"error": "Failed to update profile"})
-
-        return _response(200, {"message": "Profile updated"})
-
-    return _response(405, {"error": "Method not allowed"})
+    # other methods not used
+    return _resp(405, {"message": "Method not allowed"})

@@ -24,12 +24,12 @@ resource "aws_s3_bucket_policy" "web" {
     Version = "2012-10-17"
     Statement = [
       {
-        Sid       = "AllowCloudFrontRead"
-        Effect    = "Allow"
+        Sid    = "AllowCloudFrontRead"
+        Effect = "Allow"
         Principal = {
           AWS = aws_cloudfront_origin_access_identity.oai.iam_arn
         }
-        Action   = ["s3:GetObject"]
+        Action = ["s3:GetObject"]
         Resource = [
           "${aws_s3_bucket.web.arn}/*"
         ]
@@ -61,7 +61,7 @@ resource "aws_cloudfront_distribution" "dist" {
 
   # --- API origin (API Gateway domain) ---
   origin {
-    domain_name = var.api_domain_name   # e.g., gisdro12yf.execute-api.us-east-1.amazonaws.com
+    domain_name = var.api_domain_name # e.g., gisdro12yf.execute-api.us-east-1.amazonaws.com
     origin_id   = "api-origin"
 
     custom_origin_config {
@@ -76,22 +76,22 @@ resource "aws_cloudfront_distribution" "dist" {
 
   # Static site default
   default_cache_behavior {
-  target_origin_id       = "web-origin"
-  viewer_protocol_policy = "redirect-to-https"
-  allowed_methods        = ["GET", "HEAD", "OPTIONS"]
-  cached_methods         = ["GET", "HEAD"]
+    target_origin_id       = "web-origin"
+    viewer_protocol_policy = "redirect-to-https"
+    allowed_methods        = ["GET", "HEAD", "OPTIONS"]
+    cached_methods         = ["GET", "HEAD"]
 
-  cache_policy_id          = "658327ea-f89d-4fab-a63d-7e88639e58f6" # CachingOptimized
-  origin_request_policy_id = "88a5eaf4-2fd4-4709-b370-b4c650ea3fcf" # CORS-S3Origin
-  response_headers_policy_id = "67f7725c-6f97-4210-82d7-5512b31e9d03" # SecurityHeaders
+    cache_policy_id            = "658327ea-f89d-4fab-a63d-7e88639e58f6" # CachingOptimized
+    origin_request_policy_id   = "88a5eaf4-2fd4-4709-b370-b4c650ea3fcf" # CORS-S3Origin
+    response_headers_policy_id = "67f7725c-6f97-4210-82d7-5512b31e9d03" # SecurityHeaders
 
-  compress = true
+    compress = true
 
-  function_association {
-    event_type   = "viewer-request"
-    function_arn = aws_cloudfront_function.rewrite_index.arn
+    function_association {
+      event_type   = "viewer-request"
+      function_arn = aws_cloudfront_function.rewrite_index.arn
+    }
   }
-}
 
   # API under /api/*
   ordered_cache_behavior {
@@ -99,11 +99,11 @@ resource "aws_cloudfront_distribution" "dist" {
     target_origin_id       = "api-origin"
     viewer_protocol_policy = "https-only"
 
-    allowed_methods = ["GET","HEAD","OPTIONS","PUT","POST","PATCH","DELETE"]
-    cached_methods  = ["GET","HEAD","OPTIONS"]
+    allowed_methods = ["GET", "HEAD", "OPTIONS", "PUT", "POST", "PATCH", "DELETE"]
+    cached_methods  = ["GET", "HEAD", "OPTIONS"]
 
-    cache_policy_id          = "4135ea2d-6df8-44a3-9df3-4b5a84be39ad"  # CachingDisabled
-    origin_request_policy_id = "216adef6-5c7f-47e4-b989-5492eafa07d3"  # AllViewerExceptHostHeader
+    cache_policy_id          = "4135ea2d-6df8-44a3-9df3-4b5a84be39ad" # CachingDisabled
+    origin_request_policy_id = "216adef6-5c7f-47e4-b989-5492eafa07d3" # AllViewerExceptHostHeader
 
     compress = true
   }
@@ -125,7 +125,7 @@ resource "aws_cloudfront_distribution" "dist" {
   tags = var.common_tags
 }
 resource "aws_cloudfront_function" "rewrite_index" {
-  name    = "ssp-rewrite-index"   # <- must match the existing function name
+  name    = "ssp-rewrite-index" # <- must match the existing function name
   runtime = "cloudfront-js-1.0"
   comment = "Append /index.html for extensionless paths"
   publish = true

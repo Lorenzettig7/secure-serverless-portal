@@ -6,3 +6,7 @@ variable "authorizer_id" { type = string }
 variable "profile_log_group_name" { type = string }
 variable "private_subnet_ids" { type = list(string) }
 variable "lambda_security_group_id" { type = string }
+variable "telemetry_function_name" {
+  type        = string
+  description = "Name of the telemetry lambda function (e.g., ssp-telemetry)"
+}
