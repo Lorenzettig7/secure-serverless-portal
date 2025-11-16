@@ -39,19 +39,18 @@ jobs:
         run: terraform plan -out=plan.out \
         -var-file="../terraform.tfvars"
 
-      - name: Terraform Apply
+       - name: Terraform Apply
         working-directory: infra
-        run: terraform apply -auto-approve -var-file="../terraform.tfvars" plan.out
-
+        run: terraform apply --auto-approve --var-file="../terraform.tfvars" plan.out
 
       - name: Sync web + invalidate CloudFront
-        working-directory: infra
+        shell: bash
         run: |
-          WEB_BUCKET=$(terraform output -raw web_bucket)
-          DIST_ID=$(terraform output -raw cloudfront_distribution_id)
-          aws s3 sync ../apps/web "s3://${WEB_BUCKET}" --delete
-          aws cloudfront create-invalidation --distribution-id "$DIST_ID" --paths "/*"
-
+          set -euo pipefail
+          WEB_BUCKET=$(cd infra && terraform output -raw web_bucket)
+          DIST_ID=$(cd infra && terraform output -raw cloudfront_distribution_id)
+          aws s3 sync web "s3://${WEB_BUCKET}" --delete --cache-control "max-age=300"
+          aws cloudfront create-invalidation --distribution-id "${DIST_ID}" --paths "/index.html" "/activity.html"
       - name: Show outputs
         working-directory: infra
         run: terraform output
