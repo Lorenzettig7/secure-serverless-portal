@@ -35,12 +35,15 @@ module "foundations" {
 
 # CICD OIDC + deploy role (you already added this; keep it exactly like this)
 module "cicd_iam" {
-  source         = "./modules/cicd_iam"
-  project_prefix = var.project_prefix
-  region         = var.region
-  common_tags    = local.common_tags
-  github_owner   = var.github_owner
-  github_repo    = var.github_repo
+  source             = "./modules/cicd_iam"
+  project_prefix     = var.project_prefix
+  region             = var.region
+  github_owner       = var.github_owner
+  github_repo        = var.github_repo
+  tfstate_bucket     = "ssp-tfstate-giovanna-73048814"
+  tfstate_key_prefix = "portal/"      # from backend key = "portal/global.tfstate"
+  tf_lock_table      = "ssp-tf-locks" # fill from step 1
+  tf_kms_key_arn     = null
 }
 
 # Network (VPC + private subnets + gateway endpoints)
