@@ -1,41 +1,41 @@
-name: Terraform Deploy
+name: deploy
 
 on:
   push:
     branches: [ main ]
+    paths:
+      - "infra/**"
+      - "modules/**"
+      - "apps/web/**"
+      - ".github/workflows/terraform-deploy.yml"
+  workflow_dispatch:
 
 permissions:
-  id-token: write
+  id-token: write   # for OIDC
   contents: read
 
-concurrency:
-  group: portal-terraform
-  cancel-in-progress: true
-
-env:
-    TF_INPUT: false
-    
 jobs:
   deploy:
     runs-on: ubuntu-latest
 
+    env:
+      TF_INPUT: "false"
+      AWS_REGION: us-east-1
+
     steps:
-      - name: Checkout code
+      - name: Checkout
         uses: actions/checkout@v4
 
-      # ✅ Install Terraform
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: 1.13.4
-          cli_config_credentials_token: ""  # not needed with OIDC
 
-      # ✅ Configure AWS via OIDC
-      - name: Configure AWS credentials
+      - name: Configure AWS credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: arn:aws:iam::713881788173:role/ssp-github-deploy-role
-          aws-region: us-east-1
+          aws-region: ${{ env.AWS_REGION }}
 
       - name: Terraform Init
         working-directory: infra
@@ -43,34 +43,23 @@ jobs:
 
       - name: Terraform Plan
         working-directory: infra
-<<<<<<< HEAD
-        run: terraform plan -out=plan.out -var-file="../terraform.tfvars"
+        run: terraform plan -out=plan.out -input=false -lock-timeout=5m -var-file="../terraform.tfvars"
 
       - name: Terraform Apply
+        if: ${{ github.ref == 'refs/heads/main' }}
         working-directory: infra
-        run: terraform apply --auto-approve --var-file="../terraform.tfvars" plan.out
-=======
-        run: terraform plan -out=plan.out -input=false -lock-timeout=5m --var-file="../terraform.tfvars"
->>>>>>> cf27e1e (fix(data): declare module inputs; wire api_base_url & cognito_issuer; drop old cognito lookup)
+        run: terraform apply -input=false -auto-approve plan.out
 
-      - name: Terraform Apply
+      - name: Sync web (from apps/web) + Invalidate CloudFront
         working-directory: infra
-        run: terraform apply -input=false -lock-timeout=5m --auto-approve --var-file="../terraform.tfvars" plan.out
-        
-      - name: Sync web + invalidate CloudFront
         shell: bash
         run: |
           set -euo pipefail
-          WEB_BUCKET=$(cd infra && terraform output -raw web_bucket)
-          DIST_ID=$(cd infra && terraform output -raw cloudfront_distribution_id)
-  
-          if [ -d "web" ]; then
-          aws s3 sync web "s3://${WEB_BUCKET}" --delete --cache-control "max-age=300"
-          fi
-          if [ -d "apps/web" ]; then
-            aws s3 sync apps/web "s3://${WEB_BUCKET}" --delete --cache-control "max-age=300"
-           fi
-          aws cloudfront create-invalidation --distribution-id "${DIST_ID}" --paths "/index.html" "/activity.html"
+          WEB_BUCKET=$(terraform output -raw web_bucket)
+          DIST_ID=$(terraform output -raw cloudfront_distribution_id)
+          aws s3 sync ../apps/web "s3://${WEB_BUCKET}" --delete
+          aws cloudfront create-invalidation --distribution-id "$DIST_ID" --paths "/*"
+
       - name: Show outputs
         working-directory: infra
         run: terraform output
