@@ -1,14 +1,8 @@
 name: deploy
-
 on:
   push:
-    branches: [ main ]
-    paths:
-      - "infra/**"
-      - "modules/**"
-      - "apps/web/**"
-      - ".github/workflows/terraform-deploy.yml"
-  workflow_dispatch:
+    branches: [ "main" ]
+  workflow_dispatch: {}
 
 permissions:
   id-token: write   # for OIDC
