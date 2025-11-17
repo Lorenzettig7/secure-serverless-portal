@@ -31,13 +31,15 @@ resource "aws_dynamodb_table" "profiles" {
 }
 
 resource "aws_ssm_parameter" "api_base_url" {
-  name  = "/${var.project_prefix}/api_base_url"
+  name  = "/ssp/api_base_url"
   type  = "String"
   value = var.api_base_url
+  tags  = var.common_tags
 }
 
 resource "aws_ssm_parameter" "cognito_issuer" {
-  name  = "/${var.project_prefix}/cognito_issuer"
+  name  = "/ssp/cognito_issuer"
   type  = "String"
   value = var.cognito_issuer
+  tags  = var.common_tags
 }

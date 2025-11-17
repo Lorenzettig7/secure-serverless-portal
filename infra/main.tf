@@ -13,6 +13,16 @@ data "aws_route53_zone" "primary" {
   name         = var.hosted_zone_domain
   private_zone = false
 }
+data "aws_route53_zone" "root" {
+  name         = "${var.root_domain}."
+  private_zone = false
+}
+
+locals {
+  hosted_zone_id = var.hosted_zone_id != "" ? var.hosted_zone_id : data.aws_route53_zone.root.zone_id
+  api_base_url   = var.api_base_url
+  cognito_issuer = var.cognito_issuer
+}
 
 # Foundations (CloudTrail/Config/GuardDuty/SecHub/Logs)
 module "foundations" {
@@ -20,7 +30,7 @@ module "foundations" {
   project_prefix = var.project_prefix
   region         = var.region
   common_tags    = local.common_tags
-  alert_emails = ["lorenzettig7@gmail.com"] 
+  alert_emails   = ["lorenzettig7@gmail.com"]
 }
 
 # CICD OIDC + deploy role (you already added this; keep it exactly like this)
@@ -148,7 +158,9 @@ resource "aws_acm_certificate_validation" "portal" {
 module "data" {
   source         = "./modules/data"
   project_prefix = var.project_prefix
+  region         = var.region
   common_tags    = local.common_tags
-  api_base_url   = var.api_base_url
-  cognito_issuer = var.cognito_issuer
+  api_base_url   = local.api_base_url
+  cognito_issuer = local.cognito_issuer
+  root_domain    = var.root_domain
 }

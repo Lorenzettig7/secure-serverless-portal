@@ -23,6 +23,7 @@ variable "env" {
 variable "hosted_zone_domain" {
   description = "Route53 hosted zone name (root), e.g., secureschoolcloud.org"
   type        = string
+  default     = ""
 }
 
 variable "region" {
@@ -34,6 +35,7 @@ variable "region" {
 variable "hosted_zone_id" {
   description = "Public Route53 hosted zone ID for the domain's DNS"
   type        = string
+  default     = ""
 }
 
 variable "project_prefix" {
@@ -45,9 +47,15 @@ variable "project_prefix" {
 variable "api_base_url" {
   description = "Base URL of the deployed API"
   type        = string
+  default     = ""
 }
 
 variable "cognito_issuer" {
   description = "Cognito issuer URL for JWT validation"
+  type        = string
+  default     = ""
+}
+variable "root_domain" {
+  description = "Root domain, e.g. secureschoolcloud.org"
   type        = string
 }

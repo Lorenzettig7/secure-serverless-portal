@@ -18,21 +18,21 @@ data "archive_file" "telemetry_zip" {
   output_path = "${path.module}/build/telemetry_handler.zip"
 }
 resource "aws_iam_policy" "telemetry_logs" {
-  name   = "portal-telemetry-logs"
+  name = "portal-telemetry-logs"
   policy = jsonencode({
     Version = "2012-10-17",
     Statement = [
       {
-        Sid    = "LogsStartQueryOnProfileGroup",
-        Effect = "Allow",
-        Action = ["logs:StartQuery"],
+        Sid      = "LogsStartQueryOnProfileGroup",
+        Effect   = "Allow",
+        Action   = ["logs:StartQuery"],
         Resource = data.aws_cloudwatch_log_group.profile.arn
       },
       {
-        Sid    = "LogsGetQueryResults",
-        Effect = "Allow",
-        Action = ["logs:GetQueryResults"],
-        Resource = "*"   # <-- required
+        Sid      = "LogsGetQueryResults",
+        Effect   = "Allow",
+        Action   = ["logs:GetQueryResults"],
+        Resource = "*" # <-- required
       }
     ]
   })
