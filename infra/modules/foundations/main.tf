@@ -3,6 +3,9 @@ data "aws_caller_identity" "current" {}
 # --- LOGS BUCKET ---------------------------------------------------------------
 resource "aws_s3_bucket" "logs" {
   bucket = "${var.project_prefix}-logs-${data.aws_caller_identity.current.account_id}"
+  lifecycle {
+    prevent_destroy = true
+  }
   tags   = var.common_tags
 }
 

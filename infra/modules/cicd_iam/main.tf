@@ -32,21 +32,19 @@ data "aws_iam_policy_document" "deploy_assume" {
     }
 
     condition {
+      test     = "StringLike"
+      variable = "token.actions.githubusercontent.com:sub"
+      values   = ["repo:Lorenzettig7/secure-serverless-portal:*"]
+    }
+
+    condition {
       test     = "StringEquals"
       variable = "token.actions.githubusercontent.com:aud"
       values   = ["sts.amazonaws.com"]
     }
-
-    # Restrict to this repo + main branch
-    condition {
-      test     = "StringLike"
-      variable = "token.actions.githubusercontent.com:sub"
-      values = [
-        "repo:${var.github_owner}/${var.github_repo}:ref:refs/heads/main"
-      ]
-    }
   }
 }
+
 
 #############################
 # Deploy role used by GitHub Actions
@@ -65,15 +63,6 @@ resource "aws_iam_policy" "deploy_boundary" {
   name        = "ssp-deploy-boundary"
   path        = "/"
   description = "Boundary limiting what the GitHub deploy role can do"
-
-  lifecycle {
-    prevent_destroy = true
-    ignore_changes  = [
-      policy,
-      description,
-      tags
-    ]
-  }
 
   policy = jsonencode({
     Version = "2012-10-17"
@@ -119,7 +108,7 @@ resource "aws_iam_policy" "deploy_boundary" {
           "acm:DescribeCertificate",
           "acm:ListTagsForCertificate",
           "apigateway:GET",
-          "apigatewayv2:GET",
+          
 
           # CloudFront (including tag reads)
           "cloudfront:GetDistribution",
@@ -316,26 +305,16 @@ resource "aws_iam_policy" "deploy_boundary" {
 
             # --- Manage posture on logs and web buckets ---
       {
-  Sid    = "ManageLogsAndWebBucketsPosture"
-  Effect = "Allow"
-  Action = [
-    # Create / basic posture
-    "s3:CreateBucket",
-    "s3:GetBucketLocation",
-    "s3:GetBucketAcl",
-    "s3:GetBucketVersioning",
-    "s3:GetEncryptionConfiguration",
-    "s3:GetBucketPublicAccessBlock",
-    "s3:GetBucketPolicy",
-    "s3:PutBucketVersioning",
-    "s3:PutEncryptionConfiguration",
-    "s3:PutBucketPublicAccessBlock",
-    "s3:PutBucketPolicy",
-    "s3:DeleteBucketPolicy"
-  ]
-  Resource = [
-    "arn:aws:s3:::ssp-logs-713881788173",
-    "arn:aws:s3:::ssp-web-713881788173"
+       Sid    = "AllowAllS3OnProjectBuckets"
+       Effect = "Allow"
+       Action = "s3:*"
+       Resource = [
+         "arn:aws:s3:::ssp-logs-713881788173",
+         "arn:aws:s3:::ssp-logs-713881788173/*",
+         "arn:aws:s3:::ssp-web-713881788173",
+         "arn:aws:s3:::ssp-web-713881788173/*",
+         "arn:aws:s3:::ssp-tfstate-giovanna-73048814",
+         "arn:aws:s3:::ssp-tfstate-giovanna-73048814/*"
   ]
 },
 
@@ -347,11 +326,13 @@ resource "aws_iam_policy" "deploy_boundary" {
         Action = [
           "iam:CreatePolicy",
           "iam:DeletePolicy",
-         "iam:GetPolicy"
+         "iam:GetPolicy",
+         "iam:UpdateAssumeRolePolicy"
         ]
         Resource = [
           "arn:aws:iam::${data.aws_caller_identity.current.account_id}:policy/ssp-deploy-boundary",
-          "arn:aws:iam::${data.aws_caller_identity.current.account_id}:policy/ssp-deploy-policy"
+          "arn:aws:iam::${data.aws_caller_identity.current.account_id}:policy/ssp-deploy-policy",
+          "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/ssp-github-deploy-role"
         ]
       },
 

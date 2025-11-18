@@ -8,6 +8,9 @@ data "aws_caller_identity" "current" {}
 # --- Website bucket (name is passed in) ---
 resource "aws_s3_bucket" "web" {
   bucket = var.web_bucket_name
+  lifecycle {
+    prevent_destroy = true
+  }
   tags   = var.common_tags
 }
 
