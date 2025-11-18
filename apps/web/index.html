@@ -1,9 +1,356 @@
 <!doctype html>
 <html lang="en">
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Secure SchoolCloud</title></head>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>SchoolCloud Portal</title>
+  <style>
+    :root { color-scheme: light dark; }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: radial-gradient(circle at top, #e0ecff 0, #f5f5f7 38%, #e5e7eb 100%);
+      color: #111827;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    a {
+      color: #4f46e5;
+      text-decoration: none;
+    }
+
+    a:hover {
+      text-decoration: underline;
+    }
+
+    .page {
+      max-width: 960px;
+      margin: 0 auto;
+      padding: 32px 16px 40px;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+    }
+
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 8px;
+    }
+
+    .logo-mark {
+      width: 40px;
+      height: 40px;
+      border-radius: 12px;
+      background: linear-gradient(135deg, #4f46e5, #ec4899);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-weight: 700;
+      font-size: 20px;
+      box-shadow: 0 12px 25px rgba(15, 23, 42, 0.25);
+    }
+
+    nav {
+      display: flex;
+      gap: 16px;
+      font-size: 0.95rem;
+    }
+
+    nav a {
+      color: #4b5563;
+    }
+
+    nav a:hover {
+      color: #111827;
+    }
+
+    .hero-card {
+      background: rgba(255,255,255,0.9);
+      backdrop-filter: blur(10px);
+      border-radius: 18px;
+      padding: 24px 22px 26px;
+      box-shadow: 0 18px 45px rgba(15,23,42,0.15);
+      display: grid;
+      grid-template-columns: minmax(0, 2.2fr) minmax(0, 1.6fr);
+      gap: 20px;
+    }
+
+    @media (max-width: 800px) {
+      .hero-card {
+        grid-template-columns: minmax(0, 1fr);
+      }
+    }
+
+    h1 {
+      font-size: clamp(1.8rem, 3vw, 2.2rem);
+      margin: 0 0 8px;
+    }
+
+    .hero-subtitle {
+      margin: 0 0 16px;
+      color: #4b5563;
+      max-width: 32rem;
+      font-size: 0.98rem;
+    }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 4px 10px;
+      border-radius: 999px;
+      background: #eef2ff;
+      color: #4338ca;
+      font-size: 0.8rem;
+      font-weight: 600;
+      margin-bottom: 8px;
+    }
+
+    .roles {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 8px;
+      font-size: 0.9rem;
+    }
+
+    .role-chip {
+      padding: 4px 10px;
+      border-radius: 999px;
+      background: #f3f4f6;
+      color: #374151;
+    }
+
+    .cta-group {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 12px;
+      align-items: center;
+    }
+
+    .btn-primary {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 10px 18px;
+      border-radius: 999px;
+      background: linear-gradient(135deg, #4f46e5, #6366f1);
+      color: white;
+      font-weight: 600;
+      font-size: 0.95rem;
+      border: none;
+      cursor: pointer;
+      box-shadow: 0 10px 25px rgba(79,70,229,0.35);
+    }
+
+    .btn-primary:hover {
+      filter: brightness(1.05);
+    }
+
+    .btn-ghost {
+      padding: 8px 12px;
+      border-radius: 999px;
+      border: 1px solid #e5e7eb;
+      background: white;
+      color: #374151;
+      font-size: 0.9rem;
+    }
+
+    .btn-ghost:hover {
+      background: #f9fafb;
+    }
+
+    .hero-meta {
+      font-size: 0.8rem;
+      color: #6b7280;
+    }
+
+    .side-panel {
+      border-left: 1px solid #e5e7eb;
+      padding-left: 18px;
+    }
+
+    @media (max-width: 800px) {
+      .side-panel {
+        border-left: none;
+        border-top: 1px solid #e5e7eb;
+        padding-left: 0;
+        padding-top: 16px;
+      }
+    }
+
+    .side-panel h2 {
+      font-size: 1rem;
+      margin: 0 0 8px;
+    }
+
+    .side-panel p {
+      margin: 0 0 8px;
+      color: #4b5563;
+      font-size: 0.9rem;
+    }
+
+    .side-panel ul {
+      padding-left: 18px;
+      margin: 6px 0 0;
+      color: #4b5563;
+      font-size: 0.9rem;
+    }
+
+    .section {
+      margin-top: 10px;
+      background: rgba(255,255,255,0.9);
+      border-radius: 16px;
+      padding: 18px 18px 20px;
+      box-shadow: 0 10px 28px rgba(15,23,42,0.10);
+    }
+
+    .section h2 {
+      margin: 0 0 8px;
+      font-size: 1.1rem;
+    }
+
+    .section p {
+      margin: 0 0 8px;
+      color: #4b5563;
+      font-size: 0.93rem;
+    }
+
+    .diagram-wrapper {
+      margin-top: 8px;
+      border-radius: 12px;
+      overflow: hidden;
+      border: 1px solid #0b54e6;
+      background: #6c8bcf;
+      padding: 8px;
+    }
+
+    .diagram-wrapper img {
+      width: 100%;
+      display: block;
+    }
+
+    footer {
+      padding: 8px 16px 16px;
+      text-align: center;
+      font-size: 0.8rem;
+      color: #6b7280;
+    }
+  </style>
+</head>
 <body>
-  <h1>Deployed via GitHub Actions 🚀</h1>
-  <a id="signin" class="btn" href="#">Sign in with Cognito</a>
+  <div class="page">
+    <header>
+      <div style="display:flex;align-items:center;gap:10px;">
+        <div class="logo-mark">SC</div>
+        <div>
+          <div style="font-weight:600;">SchoolCloud Portal</div>
+          <div style="font-size:0.8rem;color:#6b7280;">A secure serverless portal for schools</div>
+        </div>
+      </div>
+      <nav>
+        <a href="/profile.html">Profile</a>
+        <a href="/activity.html">Activity &amp; Logs</a>
+      </nav>
+    </header>
+
+    <!-- hero -->
+    <section class="hero-card">
+      <div>
+        <div class="pill">
+          Secure by design
+          <span style="opacity:.7;">• AWS serverless</span>
+        </div>
+        <h1>Secure access for students, teachers, and admins.</h1>
+        <p class="hero-subtitle">
+          The SchoolCloud Portal uses AWS Cognito, API Gateway, Lambda, and WAF to give schools a
+          simple, auditable way for users to manage their profiles and view their own activity.
+        </p>
+
+        <div class="roles">
+          <span class="role-chip">Students – update your profile and see your activity.</span>
+          <span class="role-chip">Teachers – verify access and keep accounts secure.</span>
+          <span class="role-chip">Admins – monitor security events and alerts.</span>
+        </div>
+
+        <div class="cta-group">
+          <a id="signin" class="btn-primary" href="#">Sign in with school account</a>
+          <a href="/activity.html" class="btn-ghost">View Activity &amp; Logs</a>
+        </div>
+
+        <p class="hero-meta">
+          Sign-in is powered by Amazon Cognito. Only authenticated users can access their profile and activity.
+        </p>
+      </div>
+
+      <aside class="side-panel">
+        <h2>About the project</h2>
+        <p>
+          This portal was built as a secure serverless reference for K–12 and higher education.
+          It focuses on strong identity, logging, and security visibility.
+        </p>
+        <p>
+          <strong>Highlights:</strong>
+        </p>
+        <ul>
+          <li>Serverless architecture (CloudFront, S3, API Gateway, Lambda)</li>
+          <li>Per-user profiles with role (student / teacher / admin)</li>
+          <li>Activity page that surfaces CloudTrail &amp; audit events</li>
+          <li>EventBridge + SNS alerts for sensitive actions</li>
+        </ul>
+      </aside>
+    </section>
+
+    <!-- About me -->
+    <section class="section">
+      <h2>About the Builder</h2>
+      <p>
+        Hi, I’m Giovanna. I’m interested in cloud security, automation, and building systems that are
+        both secure and easy to use for real people in schools. This project was designed to show how
+        to combine AWS best practices with a friendly, student-facing experience.
+      </p>
+      <p>
+        You can explore the portal using the sign-in button above and then visit your
+        <a href="/profile.html">Profile</a> and <a href="/activity.html">Activity &amp; Logs</a>.
+      </p>
+    </section>
+
+    <!-- Architecture / diagram -->
+    <section class="section">
+      <h2>Architecture Overview</h2>
+      <p>
+        The SchoolCloud Portal runs entirely on AWS managed services. Static content is served from S3
+        through CloudFront and AWS WAF, while API Gateway and Lambda handle profile and activity logic
+        backed by DynamoDB and CloudTrail.
+      </p>
+      <p class="muted" style="font-size:0.85rem;color:#6b7280;">
+        Diagram exported from the project’s AWS architecture model.
+      </p>
+
+      <div class="diagram-wrapper">
+        <!-- TODO: export your Mermaid diagram as PNG and update the src path below -->
+        <img src="/img/schoolcloud-architecture.png" alt="SchoolCloud Portal architecture diagram">
+      </div>
+    </section>
+  </div>
+
+  <footer>
+    Deployed via GitHub Actions &nbsp;|&nbsp; Built on AWS serverless primitives and managed with Terraform
+  </footer>
+
   <script>
     const hosted = "https://ssp-portal.auth.us-east-1.amazoncognito.com/oauth2/authorize";
     const client = "743jm6pl7ceft1mg0emvlcqr5e";

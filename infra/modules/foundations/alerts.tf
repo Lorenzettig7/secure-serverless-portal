@@ -51,19 +51,24 @@ resource "aws_cloudwatch_event_target" "trail_stop_to_sns" {
 # 3) IAM changes involving portal-* roles/policies
 resource "aws_cloudwatch_event_rule" "iam_portal_changes" {
   name        = "portal-iam-changes"
-  description = "Alert on IAM changes for portal-* roles/policies"
+  description = "Alert on IAM changes for portal-* and ssp-* roles"
+
   event_pattern = jsonencode({
+    "source"      : ["aws.iam"],
     "detail-type" : ["AWS API Call via CloudTrail"],
     "detail" : {
       "eventSource" : ["iam.amazonaws.com"],
       "requestParameters" : {
-        # Broadly match names that start with portal-
-        "roleName" : [{ "prefix" : "portal-" }],
-        "policyName" : [{ "prefix" : "portal-" }]
+        "roleName" : [
+          { "prefix" : "portal-" },
+          { "prefix" : "ssp-" }
+        ]
       }
     }
   })
 }
+
+
 
 resource "aws_cloudwatch_event_target" "iam_portal_changes_to_sns" {
   rule      = aws_cloudwatch_event_rule.iam_portal_changes.name

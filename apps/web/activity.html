@@ -2,112 +2,384 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>Activity</title>
+  <title>Activity & Logs • SchoolCloud Portal</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <style>
-    :root { color-scheme: light dark; }
-    body { font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, Apple Color Emoji, Segoe UI Emoji;
-           margin: 24px; line-height: 1.35; }
-    h1 { margin: 0 0 10px; }
-    a { color: #4f46e5; text-decoration: none; }
+    :root { color-scheme: light; }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: radial-gradient(circle at top, #e0ecff 0, #f5f5f7 38%, #e5e7eb 100%);
+      color: #111827;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    a {
+      color: #4f46e5;
+      text-decoration: none;
+    }
     a:hover { text-decoration: underline; }
-    .toolbar { display: flex; gap: 16px; align-items: center; margin: 8px 0 16px; flex-wrap: wrap; }
-    .toolbar .group { display: inline-flex; gap: 8px; align-items: center; }
-    .muted { opacity: .7; font-size: .9rem; }
-    .card { border: 1px solid rgba(0,0,0,.15); border-radius: 10px; padding: 14px; margin: 12px 0; }
-    .actions { display: flex; gap: 10px; align-items: center; margin-bottom: 10px; }
-    table { width: 100%; border-collapse: collapse; }
-    th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid rgba(0,0,0,.1); vertical-align: top; }
-    th { white-space: nowrap; }
-    code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: .9em; }
+
+    .page {
+      max-width: 1120px;
+      margin: 0 auto;
+      padding: 32px 16px 40px;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 4px;
+    }
+
+    .logo-mark {
+      width: 40px;
+      height: 40px;
+      border-radius: 12px;
+      background: linear-gradient(135deg, #4f46e5, #ec4899);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-weight: 700;
+      font-size: 20px;
+      box-shadow: 0 12px 25px rgba(15, 23, 42, 0.25);
+    }
+
+    nav {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      font-size: 0.9rem;
+    }
+
+    nav a {
+      color: #4b5563;
+    }
+    nav a:hover {
+      color: #111827;
+    }
+
+    #logout {
+      border: none;
+      border-radius: 999px;
+      padding: 6px 12px;
+      background: #f3f4f6;
+      color: #374151;
+      cursor: pointer;
+      font-size: 0.85rem;
+    }
+    #logout:hover { background: #e5e7eb; }
+
+    h1 {
+      font-size: clamp(1.6rem, 2.4vw, 1.9rem);
+      margin: 0 0 4px;
+    }
+
+    .muted {
+      color: #6b7280;
+      font-size: 0.85rem;
+    }
+
+    .card {
+      background: rgba(255,255,255,0.95);
+      border-radius: 18px;
+      padding: 18px 18px 20px;
+      box-shadow: 0 16px 38px rgba(15,23,42,0.15);
+    }
+
+    .card + .card {
+      margin-top: 2px;
+    }
+
+    .card-header {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 3px 10px;
+      border-radius: 999px;
+      border: 1px solid #e5e7eb;
+      font-size: 0.78rem;
+      color: #4b5563;
+      background: #f9fafb;
+    }
+
     .status-ok { color: #16a34a; font-weight: 600; }
     .status-bad { color: #dc2626; font-weight: 600; }
-    .pill { padding: 2px 8px; border-radius: 999px; border: 1px solid rgba(0,0,0,.15); }
-    .right { margin-left: auto; }
-    .controls input[type="number"] { width: 4.5rem; }
+
+    .toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px 18px;
+      align-items: center;
+      font-size: 0.86rem;
+      margin-top: 4px;
+      margin-bottom: 6px;
+    }
+
+    .toolbar .group {
+      display: inline-flex;
+      gap: 8px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .right {
+      margin-left: auto;
+    }
+
+    .controls input[type="number"],
+    .toolbar select {
+      font-size: 0.85rem;
+      border-radius: 999px;
+      border: 1px solid #d1d5db;
+      padding: 4px 10px;
+      background: #f9fafb;
+    }
+
+    #refreshBtn {
+      border-radius: 999px;
+      border: none;
+      padding: 6px 12px;
+      font-size: 0.85rem;
+      cursor: pointer;
+      background: #e5e7eb;
+      color: #374151;
+    }
+
+    #refreshBtn:hover {
+      background: #d1d5db;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 8px;
+    }
+
+    th, td {
+      text-align: left;
+      padding: 8px 10px;
+      border-bottom: 1px solid #e5e7eb;
+      vertical-align: top;
+      font-size: 0.86rem;
+    }
+
+    th {
+      white-space: nowrap;
+      font-weight: 600;
+      color: #4b5563;
+    }
+
+    code {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: .8em;
+    }
+
+    .empty-row {
+      text-align: center;
+      color: #9ca3af;
+      font-style: italic;
+    }
+
+    #toggleRaw {
+      border-radius: 999px;
+      border: none;
+      padding: 6px 14px;
+      font-size: 0.8rem;
+      cursor: pointer;
+      background: linear-gradient(135deg, #4f46e5, #6366f1);
+      color: #ffffff;
+      box-shadow: 0 6px 18px rgba(79, 70, 229, 0.35);
+    }
+
+    #toggleRaw:hover {
+      filter: brightness(1.05);
+    }
+
+    #raw {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 0.8rem;
+      padding: 10px 12px;
+      border-radius: 12px;
+      background: #111827;
+      color: #e5e7eb;
+      max-height: 260px;
+      overflow: auto;
+    }
+
+    footer {
+      padding: 8px 16px 16px;
+      text-align: center;
+      font-size: 0.8rem;
+      color: #6b7280;
+    }
+
     @media (max-width: 720px) {
-      body { margin: 16px; }
+      .page { padding: 24px 12px 32px; }
+      .toolbar { align-items: flex-start; }
       th:nth-child(3), td:nth-child(3) { word-break: break-word; }
     }
   </style>
 </head>
 <body>
+  <div class="page">
+    <header>
+      <div style="display:flex;align-items:center;gap:10px;">
+        <div class="logo-mark">SC</div>
+        <div>
+          <div style="font-weight:600;">SchoolCloud Portal</div>
+          <div class="muted" style="font-size:0.8rem;">Security activity &amp; audit logs</div>
+        </div>
+      </div>
+      <nav>
+        <a href="/">Home</a>
+        <a href="/activity.html">Activity &amp; Logs</a>
+        <a href="/profile.html">Profile</a>
+        <button id="logout" type="button">Logout</button>
+      </nav>
+    </header>
 
-  <h1>Activity</h1>
+    <!-- Overview + controls -->
+    <section class="card">
+      <div class="card-header">
+        <div>
+          <h1>Activity &amp; Logs</h1>
+          <p id="identity" class="muted" style="margin:0;">Signed in user will appear here.</p>
+        </div>
+        <div class="pill">
+          <span class="muted">API status:</span>
+          <span id="status" class="status-ok">—</span>
+        </div>
+      </div>
 
-  <div class="toolbar">
-    <div class="group"><span class="muted">Status:</span> <span id="status" class="status-ok">—</span></div>
-    <div class="group">
-      <label for="windowSel" class="muted">Time window</label>
-      <select id="windowSel">
-        <option value="15">Last 15 min</option>
-        <option value="30" selected>Last 30 min</option>
-        <option value="60">Last 60 min</option>
-        <option value="120">Last 2 hours</option>
-      </select>
-    </div>
-    <div class="group controls">
-      <label class="muted"><input type="checkbox" id="autorefresh" checked> Auto-refresh</label>
-      <label class="muted">every
-        <input type="number" id="intervalSec" min="5" max="120" step="5" value="30"> s
-      </label>
-      <button id="refreshBtn">Refresh now</button>
-    </div>
-    <div class="group right">
-      <a href="/profile.html">Back to Profile</a>
-    </div>
+      <div class="toolbar">
+        <div class="group">
+          <span class="muted">Time window</span>
+          <select id="windowSel">
+            <option value="15">Last 15 min</option>
+            <option value="30" selected>Last 30 min</option>
+            <option value="60">Last 60 min</option>
+            <option value="120">Last 2 hours</option>
+          </select>
+        </div>
+
+        <div class="group controls">
+          <label class="muted">
+            <input type="checkbox" id="autorefresh" checked> Auto-refresh
+          </label>
+          <label class="muted">
+            every <input type="number" id="intervalSec" min="5" max="120" step="5" value="30"> s
+          </label>
+          <button id="refreshBtn" type="button">Refresh now</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Security events -->
+    <section class="card">
+      <div class="card-header">
+        <div>
+          <div style="font-size:0.95rem;font-weight:600;">Security events (CloudTrail)</div>
+          <div class="muted">High-level sign-in and security events observed for the portal.</div>
+        </div>
+        <span id="tcount" class="muted"></span>
+      </div>
+
+      <table>
+        <thead>
+          <tr>
+            <th style="width:210px">Time (UTC)</th>
+            <th>Event</th>
+            <th>Source / Actor</th>
+          </tr>
+        </thead>
+        <tbody id="tbl"></tbody>
+      </table>
+    </section>
+
+    <!-- Per-user actions -->
+    <section class="card">
+      <div class="card-header">
+        <div>
+          <div style="font-size:0.95rem;font-weight:600;">My recent actions</div>
+          <div class="muted">Audit entries when you read or update your profile.</div>
+        </div>
+        <span id="pcount" class="muted"></span>
+      </div>
+
+      <table>
+        <thead>
+          <tr>
+            <th style="width:210px">Time (UTC)</th>
+            <th>Action</th>
+            <th>Details</th>
+          </tr>
+        </thead>
+        <tbody id="ptbl"></tbody>
+      </table>
+      <p class="muted" style="margin-top:8px">
+        These come from the profile Lambda (<code>PROFILE_READ</code> / <code>PROFILE_UPDATE</code>) and are filtered to your user.
+      </p>
+    </section>
+
+    <!-- Raw JSON -->
+    <section class="card">
+      <div class="card-header">
+        <div>
+          <div style="font-size:0.95rem;font-weight:600;">Raw response (debug)</div>
+          <div class="muted">Full JSON payload returned from the activity API.</div>
+        </div>
+        <button id="toggleRaw" type="button">Show raw JSON</button>
+      </div>
+      <pre id="raw" style="white-space:pre-wrap;margin:0;display:none"></pre>
+    </section>
   </div>
 
-  <!-- CloudTrail events (existing) -->
-  <div class="card">
-    <div class="actions">
-      <span class="muted">Backend Events (CloudTrail)</span>
-      <span id="tcount" class="muted right"></span>
-    </div>
-    <table>
-      <thead>
-        <tr>
-          <th style="width:210px">Time (UTC)</th>
-          <th>Event</th>
-          <th>Source / Actor</th>
-        </tr>
-      </thead>
-      <tbody id="tbl"></tbody>
-    </table>
-  </div>
-
-  <!-- NEW: Per-user actions from app logs -->
-  <div class="card">
-    <div class="actions">
-      <span class="muted">Your Recent Actions (from app logs)</span>
-      <span id="pcount" class="muted right"></span>
-    </div>
-    <table>
-      <thead>
-        <tr>
-          <th style="width:210px">Time (UTC)</th>
-          <th>Action</th>
-          <th>Details</th>
-        </tr>
-      </thead>
-      <tbody id="ptbl"></tbody>
-    </table>
-    <p class="muted" style="margin-top:8px">These are JSON audit lines (<code>PROFILE_READ</code> / <code>PROFILE_UPDATE</code>) emitted by the Profile Lambda and filtered by your user.</p>
-  </div>
-
-  <!-- Raw JSON (existing) -->
-  <div class="card">
-    <div class="actions"><span class="muted">Raw response</span></div>
-    <pre id="raw" style="white-space:pre-wrap;margin:0"></pre>
-  </div>
+  <footer>
+    Data is sourced from CloudTrail and DynamoDB and refreshed via the SchoolCloud activity API.
+  </footer>
 
 <script>
   // ==== CONFIG ====
-  // If you use a different API base, change this one line:
   const API_BASE = (window.API_BASE || "https://gisdro12yf.execute-api.us-east-1.amazonaws.com").replace(/\/+$/,'');
   const TOKEN = localStorage.getItem("id_token");
+  if (!TOKEN) {
+    const params = new URLSearchParams({ redirect: "/activity.html" });
+    window.location.href = "/login.html?" + params.toString();
+  }
+
+  // Logout button
+  const logoutBtn = document.getElementById("logout");
+  if (logoutBtn) {
+    logoutBtn.addEventListener("click", () => {
+      localStorage.removeItem("id_token");
+      window.location.href = "/";
+    });
+  }
 
   // ==== ELEMENTS ====
+  const identityEl = document.getElementById("identity");
   const tbl = document.getElementById("tbl");
   const ptbl = document.getElementById("ptbl");
   const raw = document.getElementById("raw");
@@ -118,6 +390,9 @@
   const autorefresh = document.getElementById("autorefresh");
   const intervalSec = document.getElementById("intervalSec");
   const refreshBtn = document.getElementById("refreshBtn");
+  const toggleRawBtn = document.getElementById("toggleRaw");
+
+  const MAX_ROWS = 10; // show latest N rows in tables
 
   // Persist user prefs
   const PREFS_KEY = "activity_prefs";
@@ -143,7 +418,6 @@
     return (s || "").replace("T"," ").replace("+00:00","");
   }
   function normalizeProfileEvent(e) {
-    // Accept either clean JSON from telemetry or a "raw" line with INFO\t{...}
     if (e && typeof e === "object" && !e.raw) return e;
     const raw = e?.raw || "";
     const i = raw.indexOf("{");
@@ -151,6 +425,26 @@
       try { return JSON.parse(raw.slice(i)); } catch {}
     }
     return { raw };
+  }
+  function capitalize(s) {
+    s = s || "";
+    return s.charAt(0).toUpperCase() + s.slice(1);
+  }
+
+  // Load identity (role + email) from profile API
+  async function loadIdentity() {
+    try {
+      const r = await fetch(`${API_BASE}/profile`, {
+        headers: { Authorization: "Bearer " + TOKEN }
+      });
+      if (!r.ok) return;
+      const data = await r.json();
+      const role = capitalize(data.role || "student");
+      const email = data.email || "";
+      identityEl.textContent = `Signed in as ${role}${email ? " • " + email : ""}`;
+    } catch {
+      // if this fails, just leave the identity line as-is
+    }
   }
 
   async function load() {
@@ -170,16 +464,17 @@
       statusEl.textContent = r.ok ? "200" : String(r.status);
       statusEl.className = r.ok ? "status-ok" : "status-bad";
 
-      // Raw
+      // Raw (regardless of visibility)
       raw.textContent = txt;
 
-      // CloudTrail table (existing)
+      // Security events (CloudTrail)
       const events = Array.isArray(data.events) ? data.events : [];
-      tcountEl.textContent = `${events.length} event(s)`;
-      if (!events.length) {
-        tbl.innerHTML = `<tr><td colspan="3" class="muted">No recent backend events.</td></tr>`;
+      const securityEvents = events.slice(0, MAX_ROWS);
+      tcountEl.textContent = `${events.length} event(s), showing latest ${securityEvents.length}`;
+      if (!securityEvents.length) {
+        tbl.innerHTML = `<tr><td colspan="3" class="empty-row">No recent security events.</td></tr>`;
       } else {
-        tbl.innerHTML = events.map(ev => `
+        tbl.innerHTML = securityEvents.map(ev => `
           <tr>
             <td><code>${fmt(ev.time)}</code></td>
             <td>${ev.name || ""}</td>
@@ -188,17 +483,18 @@
         `).join("");
       }
 
-      // NEW: Profile events
+      // My recent actions (PROFILE_READ/UPDATE)
       const pe = Array.isArray(data.profileEvents) ? data.profileEvents.map(normalizeProfileEvent) : [];
-      pcountEl.textContent = `${pe.length} action(s)`;
-      if (!pe.length) {
-        ptbl.innerHTML = `<tr><td colspan="3" class="muted">No recent actions.</td></tr>`;
+      const limitedProfileEvents = pe.slice(0, MAX_ROWS);
+      pcountEl.textContent = `${pe.length} action(s), showing latest ${limitedProfileEvents.length}`;
+      if (!limitedProfileEvents.length) {
+        ptbl.innerHTML = `<tr><td colspan="3" class="empty-row">No recent actions.</td></tr>`;
       } else {
-        ptbl.innerHTML = pe.map(e => `
+        ptbl.innerHTML = limitedProfileEvents.map(e => `
           <tr>
             <td><code>${fmt(e["@timestamp"])}</code></td>
             <td>${e.event || ""}</td>
-            <td>${e.table ? `table=${e.table}` : ""}</td>
+            <td>${e.table ? `table=${e.table}` : (e.raw || "")}</td>
           </tr>
         `).join("");
       }
@@ -207,8 +503,8 @@
       statusEl.textContent = "Error";
       statusEl.className = "status-bad";
       raw.textContent = String(err);
-      tbl.innerHTML = `<tr><td colspan="3" class="muted">Failed to load.</td></tr>`;
-      ptbl.innerHTML = `<tr><td colspan="3" class="muted">Failed to load.</td></tr>`;
+      tbl.innerHTML = `<tr><td colspan="3" class="empty-row">Failed to load.</td></tr>`;
+      ptbl.innerHTML = `<tr><td colspan="3" class="empty-row">Failed to load.</td></tr>`;
     }
   }
 
@@ -231,9 +527,17 @@
   autorefresh.addEventListener("change", () => { savePrefs(); startTimer(); });
   intervalSec.addEventListener("change", () => { savePrefs(); startTimer(); });
 
+  // Raw JSON toggle
+  let rawVisible = false;
+  toggleRawBtn.addEventListener("click", () => {
+    rawVisible = !rawVisible;
+    raw.style.display = rawVisible ? "block" : "none";
+    toggleRawBtn.textContent = rawVisible ? "Hide raw JSON" : "Show raw JSON";
+  });
+
   // Initial load
+  loadIdentity();
   load().then(startTimer);
 </script>
 </body>
 </html>
-

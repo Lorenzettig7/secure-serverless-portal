@@ -71,16 +71,18 @@ def _get_profile(sub, email_hint=None):
             PK_NAME: sub,
             "email": email_hint or "",
             "bio": "",
+            "role": "student",
         }, "New profile (not yet saved)"
     except ClientError as e:
         logger.error("DynamoDB get_item failed: %s", e, exc_info=True)
         raise
 
-def _put_profile(sub, email, bio):
+def _put_profile(sub, email, bio,role):
     item = {
         PK_NAME: sub,
         "email": email or "",
         "bio": bio or "",
+        "role": role,
         "updated_at": datetime.now(timezone.utc).isoformat(),
     }
     TABLE.put_item(Item=item)
@@ -103,8 +105,9 @@ def handler(event, context):
     if method == "POST":
         body = _parse_body(event)
         bio = (body.get("bio") or "").strip()
+        role = (body.get("role") or "student").strip().lower()
         try:
-            saved = _put_profile(sub, email, bio)
+            saved = _put_profile(sub, email, bio, role)
             _log_event("PROFILE_UPDATE", sub, {"table": TABLE_NAME})
             return _resp(200, {"ok": True, **saved})
         except ClientError as e:

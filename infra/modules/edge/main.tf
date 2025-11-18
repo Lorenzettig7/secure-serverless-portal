@@ -51,6 +51,7 @@ resource "aws_cloudfront_distribution" "dist" {
   default_root_object = "index.html"
 
   aliases = [var.domain_name]
+  web_acl_id = aws_wafv2_web_acl.cf.arn
 
   # --- Web (S3) origin via OAI ---
   origin {
@@ -133,4 +134,117 @@ resource "aws_cloudfront_function" "rewrite_index" {
   comment = "Append /index.html for extensionless paths"
   publish = true
   code    = file("${path.module}/rewrite-index.js")
+}
+############################################
+# WAF Web ACL for CloudFront
+############################################
+
+resource "aws_wafv2_web_acl" "cf" {
+  name  = "${var.project_prefix}-cf-waf"
+  scope = "CLOUDFRONT"  # must be CLOUDFRONT for CloudFront dist
+
+  default_action {
+    allow {}
+  }
+
+  visibility_config {
+    cloudwatch_metrics_enabled = true
+    metric_name                = "${var.project_prefix}-cf-waf"
+    sampled_requests_enabled   = true
+  }
+
+  # Managed rule: common protections (SQLi/XSS/etc.)
+  rule {
+    name     = "AWS-AWSManagedRulesCommonRuleSet"
+    priority = 1
+
+    override_action {
+      none {}
+    }
+
+    statement {
+      managed_rule_group_statement {
+        name        = "AWSManagedRulesCommonRuleSet"
+        vendor_name = "AWS"
+      }
+    }
+
+    visibility_config {
+      cloudwatch_metrics_enabled = true
+      metric_name                = "${var.project_prefix}-waf-common"
+      sampled_requests_enabled   = true
+    }
+  }
+
+  # Managed rule: known bad inputs
+  rule {
+    name     = "AWS-AWSManagedRulesKnownBadInputsRuleSet"
+    priority = 2
+
+    override_action {
+      none {}
+    }
+
+    statement {
+      managed_rule_group_statement {
+        name        = "AWSManagedRulesKnownBadInputsRuleSet"
+        vendor_name = "AWS"
+      }
+    }
+
+    visibility_config {
+      cloudwatch_metrics_enabled = true
+      metric_name                = "${var.project_prefix}-waf-badinputs"
+      sampled_requests_enabled   = true
+    }
+  }
+
+  # Managed rule: IP reputation
+  rule {
+    name     = "AWS-AWSManagedRulesAmazonIpReputationList"
+    priority = 3
+
+    override_action {
+      none {}
+    }
+
+    statement {
+      managed_rule_group_statement {
+        name        = "AWSManagedRulesAmazonIpReputationList"
+        vendor_name = "AWS"
+      }
+    }
+
+    visibility_config {
+      cloudwatch_metrics_enabled = true
+      metric_name                = "${var.project_prefix}-waf-iprep"
+      sampled_requests_enabled   = true
+    }
+  }
+
+  tags = var.common_tags
+}
+############################################
+# WAF Logging
+############################################
+
+resource "aws_cloudwatch_log_group" "waf" {
+  name              = "aws-waf-logs-${var.project_prefix}-cf-waf"
+  retention_in_days = 30
+  tags              = var.common_tags
+}
+
+resource "aws_wafv2_web_acl_logging_configuration" "cf" {
+  resource_arn = aws_wafv2_web_acl.cf.arn
+
+  log_destination_configs = [
+    aws_cloudwatch_log_group.waf.arn
+  ]
+
+  # Optional: don't log the Authorization header
+  redacted_fields {
+    single_header {
+      name = "authorization"
+    }
+  }
 }
