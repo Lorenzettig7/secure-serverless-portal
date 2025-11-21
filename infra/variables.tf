@@ -1,8 +1,10 @@
 # infra/variables.tf
 
+
 variable "github_owner" { type = string }
 variable "github_repo" { type = string }
-
+variable "findings_table_name" { type = string }
+variable "findings_table_arn" { type = string }
 
 variable "domain_name" {
   description = "Public portal hostname used by Cognito redirects (e.g., portal.secureschoolcloud.org)"

@@ -78,7 +78,7 @@ resource "aws_iam_policy" "deploy_boundary" {
           "iam:List*",
           "iam:SimulatePrincipalPolicy",
           "iam:DetachRolePolicy",
-          "iam:DeletePolicyVersion",
+          "iam:CreatePolicyVersion ",
 
           "sts:GetCallerIdentity",
 
@@ -317,7 +317,29 @@ resource "aws_iam_policy" "deploy_boundary" {
          "arn:aws:s3:::ssp-tfstate-giovanna-73048814/*"
   ]
 },
-
+      # --- Allow WAFv2 for CloudFront WebACLs ---
+      {
+        Sid    = "AllowWafv2ForCloudFront"
+        Effect = "Allow"
+        Action = [
+          "wafv2:CreateWebACL",
+          "wafv2:UpdateWebACL",
+          "wafv2:DeleteWebACL",
+          "wafv2:GetWebACL",
+          "wafv2:ListWebACLs",
+          "wafv2:ListResourcesForWebACL",
+          "wafv2:AssociateWebACL",
+          "wafv2:DisassociateWebACL",
+          "wafv2:TagResource",
+          "wafv2:ListTagsForResource",
+          "wafv2:UntagResource",
+          "wafv2:PutLoggingConfiguration",
+          "wafv2:DeleteLoggingConfiguration",
+          "wafv2:GetLoggingConfiguration"
+        ]
+        Resource = "*"
+        # "arn:aws:wafv2:us-east-1:${data.aws_caller_identity.current.account_id}:global/webacl/*"
+      },
 
       # --- Allow Terraform to replace its own deploy policies ---
       {
@@ -327,7 +349,10 @@ resource "aws_iam_policy" "deploy_boundary" {
           "iam:CreatePolicy",
           "iam:DeletePolicy",
          "iam:GetPolicy",
-         "iam:UpdateAssumeRolePolicy"
+         "iam:UpdateAssumeRolePolicy",
+         "iam:CreatePolicyVersion",
+         "iam:DeletePolicyVersion"
+         
         ]
         Resource = [
           "arn:aws:iam::${data.aws_caller_identity.current.account_id}:policy/ssp-deploy-boundary",
@@ -394,7 +419,6 @@ resource "aws_iam_role_policy" "deploy_lock_ddb" {
 resource "aws_iam_role_policy" "deploy_inline" {
   name = "${var.project_prefix}-deploy-inline"
   role = aws_iam_role.deploy.name
-
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [

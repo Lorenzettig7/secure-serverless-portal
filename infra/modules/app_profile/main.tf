@@ -10,7 +10,24 @@ data "archive_file" "auth_exchange" {
   source_file = "${path.root}/../apps/lambda/auth_exchange.py"
   output_path = "${path.module}/build/auth_exchange.zip"
 }
+data "archive_file" "findings_zip" {
+  type        = "zip"
+  source_file = "${path.root}/../apps/lambda/findings_handler.py"
+  output_path = "${path.module}/build/findings_handler.zip"
+}
 
+data "aws_iam_policy_document" "lambda_assume" {
+  statement {
+    effect = "Allow"
+
+    principals {
+      type        = "Service"
+      identifiers = ["lambda.amazonaws.com"]
+    }
+
+    actions = ["sts:AssumeRole"]
+  }
+}
 
 # IAM role for the Profile Lambda
 resource "aws_iam_role" "lambda" {
@@ -61,23 +78,43 @@ resource "aws_iam_role_policy" "lambda_policy" {
 }
 resource "aws_iam_role_policy" "lambda_dynamodb" {
   name = "${var.project_prefix}-profile-ddb"
-  role = aws_iam_role.lambda.id
+  role = aws_iam_role.lambda.id  # or whatever your profile Lambda role is called
 
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
+      # 1) Existing DynamoDB access
       {
         Effect = "Allow"
         Action = [
           "dynamodb:GetItem",
           "dynamodb:PutItem",
-          "dynamodb:UpdateItem"
+          "dynamodb:UpdateItem",
         ]
         Resource = var.profiles_table_arn
+      },
+
+      # 2) NEW: allow writing raw profile JSON to S3
+      {
+        Effect = "Allow"
+        Action = [
+          "s3:PutObject",
+        ]
+        Resource = "arn:aws:s3:::${var.profiles_raw_bucket_name}/profiles/*"
+      },
+
+      # 3) NEW: allow encrypting with your CMK
+      {
+        Effect = "Allow"
+        Action = [
+          "kms:Encrypt",
+        ]
+        Resource = var.portal_kms_key_arn
       }
     ]
   })
 }
+
 resource "aws_iam_role_policy" "lambda_kms" {
   name = "${var.project_prefix}-profile-kms"
   role = aws_iam_role.lambda.id
@@ -98,8 +135,45 @@ resource "aws_iam_role_policy" "lambda_kms" {
     ]
   })
 }
+resource "aws_iam_role_policy" "findings_kms" {
+  name = "${var.project_prefix}-findings-kms"
+  role = aws_iam_role.findings_role.id
+  policy = jsonencode({
+    Version = "2012-10-17",
+    Statement = [{
+      Effect   = "Allow",
+      Action   = [
+        "kms:Decrypt"
+      ],
+      Resource = var.profiles_kms_key_arn  # or whatever var you already use for the portal CMK
+    }]
+  })
+}
 
 # Lambda function
+# findings_handler Lambda (in app_profile or a new app_findings module)
+resource "aws_lambda_function" "findings" {
+  function_name    = "${var.project_prefix}-findings"
+  role             = aws_iam_role.findings_role.arn
+  filename         = data.archive_file.findings_zip.output_path
+  source_code_hash = data.archive_file.findings_zip.output_base64sha256
+  handler          = "findings_handler.handler"
+  runtime          = "python3.11"
+  timeout          = 10
+
+  environment {
+    variables = {
+    ALLOWED_ORIGIN      = var.allowed_origin
+    PORTAL_BUCKET_NAME  = var.portal_bucket_name
+    PROFILES_TABLE_NAME = var.profiles_table_name
+    WAF_WEBACL_ARN      = var.waf_web_acl_arn
+    WAF_SAMPLE_RULE     = "Default_Action"
+    }
+  }
+
+  tags = var.common_tags
+}
+
 resource "aws_lambda_function" "profile" {
   function_name    = "${var.project_prefix}-profile"
   role             = aws_iam_role.lambda.arn
@@ -122,6 +196,7 @@ resource "aws_lambda_function" "profile" {
       ISSUER_URL     = var.user_pool_issuer_url
       CLIENT_ID      = var.user_pool_client_id
       ALLOWED_ORIGIN = "https://portal.secureschoolcloud.org"
+      PROFILE_RAW_BUCKET = var.profiles_raw_bucket_name
       PK_NAME        = "id"
     }
   }
@@ -247,4 +322,70 @@ resource "aws_apigatewayv2_integration" "auth_exchange" {
   integration_type       = "AWS_PROXY"
   integration_uri        = aws_lambda_function.auth_exchange.invoke_arn
   payload_format_version = "2.0"
+}
+resource "aws_apigatewayv2_integration" "findings" {
+  api_id                 = aws_apigatewayv2_api.api.id
+  integration_type       = "AWS_PROXY"
+  integration_uri        = aws_lambda_function.findings.invoke_arn
+  integration_method     = "POST"
+  payload_format_version = "2.0"
+}
+
+
+resource "aws_apigatewayv2_route" "get_findings" {
+  api_id             = aws_apigatewayv2_api.api.id
+  route_key          = "GET /findings"
+  target             = "integrations/${aws_apigatewayv2_integration.findings.id}"
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.jwt.id
+}
+
+resource "aws_apigatewayv2_route" "resolve_finding" {
+  api_id             = aws_apigatewayv2_api.api.id
+  route_key          = "POST /findings/resolve"
+  target             = "integrations/${aws_apigatewayv2_integration.findings.id}"
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.jwt.id
+}
+
+
+resource "aws_lambda_permission" "allow_api_findings" {
+  statement_id  = "AllowAPIGatewayInvokeFindings"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.findings.function_name
+  principal     = "apigateway.amazonaws.com"
+  source_arn    = "${aws_apigatewayv2_api.api.execution_arn}/*/*"
+}
+
+
+resource "aws_iam_role" "findings_role" {
+  name               = "${var.project_prefix}-findings-role"
+  assume_role_policy = data.aws_iam_policy_document.lambda_assume.json
+  tags               = var.common_tags
+}
+
+resource "aws_iam_role_policy_attachment" "findings_basic" {
+  role       = aws_iam_role.findings_role.name
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+}
+
+resource "aws_iam_role_policy" "findings_policy" {
+  name = "${var.project_prefix}-findings-ddb"
+  role = aws_iam_role.findings_role.id
+
+  policy = jsonencode({
+    Version = "2012-10-17",
+    Statement = [
+      {
+        Effect   = "Allow",
+        Action   = ["dynamodb:Query", "dynamodb:Scan", "dynamodb:UpdateItem"],
+        Resource = var.findings_table_arn
+      },
+      {
+        Effect   = "Allow",
+        Action   = ["dynamodb:Query"],
+        Resource = "${var.findings_table_arn}/index/by_user"
+      }
+    ]
+  })
 }

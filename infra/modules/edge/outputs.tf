@@ -13,3 +13,6 @@ output "distribution_id" {
 output "web_bucket" {
   value = aws_s3_bucket.web.bucket
 }
+output "web_acl_arn" {
+  value = aws_wafv2_web_acl.cf.arn
+}

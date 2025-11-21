@@ -101,15 +101,31 @@ def handler(event, context):
             **profile,
             "note": note
         })
-
+    
     if method == "POST":
         body = _parse_body(event)
         bio = (body.get("bio") or "").strip()
         role = (body.get("role") or "student").strip().lower()
+
         try:
+            # Save profile to DynamoDB
             saved = _put_profile(sub, email, bio, role)
+
+            # NEW: write raw profile to S3 for Macie scanning
+            s3 = boto3.client("s3")
+            bucket = os.environ.get("PROFILE_RAW_BUCKET")
+            if bucket:
+                key = f"profiles/{sub}.json"
+                s3.put_object(
+                    Bucket=bucket,
+                    Key=key,
+                    Body=json.dumps({"sub": sub, "email": email, "bio": bio}),
+                    ServerSideEncryption="aws:kms",
+                )
+
             _log_event("PROFILE_UPDATE", sub, {"table": TABLE_NAME})
             return _resp(200, {"ok": True, **saved})
+
         except ClientError as e:
             logger.error("DynamoDB put_item failed: %s", e, exc_info=True)
             return _resp(500, {"message": "Failed to save profile"})

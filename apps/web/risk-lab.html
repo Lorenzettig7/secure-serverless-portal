@@ -1,0 +1,525 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Security Lab • SchoolCloud Portal</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    :root { color-scheme: light; }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: radial-gradient(circle at top, #e0ecff 0, #f5f5f7 38%, #e5e7eb 100%);
+      color: #111827;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    a {
+      color: #4f46e5;
+      text-decoration: none;
+    }
+    a:hover { text-decoration: underline; }
+
+    .page {
+      max-width: 1120px;
+      margin: 0 auto;
+      padding: 32px 16px 40px;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 4px;
+    }
+
+    .logo-mark {
+      width: 40px;
+      height: 40px;
+      border-radius: 12px;
+      background: linear-gradient(135deg, #4f46e5, #ec4899);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-weight: 700;
+      font-size: 20px;
+      box-shadow: 0 12px 25px rgba(15, 23, 42, 0.25);
+    }
+
+    .muted {
+      color: #6b7280;
+      font-size: 0.85rem;
+    }
+
+    nav {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      font-size: 0.9rem;
+    }
+
+    nav a {
+      color: #4b5563;
+    }
+    nav a:hover {
+      color: #111827;
+    }
+
+    #logout {
+      border: none;
+      border-radius: 999px;
+      padding: 6px 12px;
+      background: #f3f4f6;
+      color: #374151;
+      cursor: pointer;
+      font-size: 0.85rem;
+    }
+    #logout:hover { background: #e5e7eb; }
+
+    h1 {
+      font-size: clamp(1.6rem, 2.4vw, 1.9rem);
+      margin: 0 0 4px;
+    }
+
+    h2 {
+      font-size: 1.05rem;
+      margin: 0 0 4px;
+    }
+
+    .card {
+      background: rgba(255,255,255,0.95);
+      border-radius: 18px;
+      padding: 18px 18px 20px;
+      box-shadow: 0 16px 38px rgba(15,23,42,0.15);
+    }
+
+    .card + .card {
+      margin-top: 2px;
+    }
+
+    #status {
+      font-size: 0.85rem;
+      margin-top: 8px;
+      color: #6b7280;
+    }
+
+    .findings-list {
+      margin-top: 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    
+    .macie-log {
+      list-style: none;
+      padding: 0;
+      margin: 8px 0 0;
+      font-size: 0.8rem;
+      color: #4b5563;
+    }
+
+    .macie-log li + li {
+      margin-top: 4px;
+    }
+
+
+    .finding {
+      border-radius: 14px;
+      border: 1px solid #e5e7eb;
+      background: #f9fafb;
+      padding: 10px 12px 12px;
+      font-size: 0.88rem;
+    }
+
+    .finding-header {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+      margin-bottom: 4px;
+      font-size: 0.8rem;
+      color: #4b5563;
+    }
+
+    .chip {
+      display: inline-flex;
+      align-items: center;
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-size: 0.7rem;
+      font-weight: 600;
+    }
+    .chip-green {
+      background: #dcfce7;
+      color: #15803d;
+    }
+    .chip-amber {
+      background: #fef3c7;
+      color: #92400e;
+    }
+    .chip-red {
+      background: #fee2e2;
+      color: #b91c1c;
+    }
+    .chip-blue {
+      background: #e0e7ff;
+      color: #3730a3;
+    }
+    .chip-purple {
+      background: #f5e0ff;
+      color: #6b21a8;
+    }
+
+
+    .type {
+      font-weight: 600;
+    }
+
+    .source {
+      color: #6b7280;
+      font-size: 0.78rem;
+    }
+
+    .summary {
+      margin: 4px 0 4px;
+    }
+
+    .meta {
+      margin: 2px 0;
+      font-size: 0.78rem;
+      color: #6b7280;
+    }
+
+    details.sample {
+      margin-top: 6px;
+    }
+
+    details.sample summary {
+      cursor: pointer;
+      font-size: 0.8rem;
+      color: #4f46e5;
+    }
+
+    details.sample pre {
+      margin-top: 6px;
+      padding: 8px 10px;
+      background: #111827;
+      color: #e5e7eb;
+      border-radius: 10px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 0.78rem;
+      max-height: 200px;
+      overflow: auto;
+    }
+
+    .btn-primary {
+      margin-top: 8px;
+      border-radius: 999px;
+      border: none;
+      padding: 6px 14px;
+      font-size: 0.8rem;
+      cursor: pointer;
+      background: linear-gradient(135deg, #4f46e5, #6366f1);
+      color: #ffffff;
+      box-shadow: 0 6px 18px rgba(79, 70, 229, 0.35);
+    }
+
+    .btn-primary:hover {
+      filter: brightness(1.05);
+    }
+
+    footer {
+      padding: 8px 16px 16px;
+      text-align: center;
+      font-size: 0.8rem;
+      color: #6b7280;
+    }
+
+    @media (max-width: 720px) {
+      .page { padding: 24px 12px 32px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <header>
+      <div style="display:flex;align-items:center;gap:10px;">
+        <div class="logo-mark">SC</div>
+        <div>
+          <div style="font-weight:600;">SchoolCloud Portal</div>
+          <div class="muted" style="font-size:0.8rem;">PII risk lab &amp; security findings</div>
+        </div>
+      </div>
+      <nav>
+        <a href="/">Home</a>
+        <a href="/security-overview.html">Security Overview</a>
+        <a href="/profile.html">Profile</a>
+         <a href="/activity.html">Activity &amp; Logs</a>
+        <a href="/risk-lab.html">Security Lab</a>
+        <button id="logout" type="button">Logout</button>
+      </nav>
+    </header>
+
+    <section class="card">
+      <h1>Security Lab</h1>
+      <p class="muted" style="margin-top:4px;">
+        This lab shows automated PII findings when you put risky data in your profile bio.
+        Try adding a fake date of birth or SSN to your bio on the Profile page, then come back here.
+      </p>
+      <p id="status">Loading findings…</p>
+    </section>
+    <section class="card">
+      <h2>How this works</h2>
+        <ol class="explain-list">
+        <li><strong>Profile saved</strong> – When you save your profile, the bio is stored in a DynamoDB table and a full copy of the profile JSON is written to an encrypted S3 bucket.</li>
+        <li><strong>Local PII scan (Lambda)</strong> – A DynamoDB Stream triggers a Lambda that scans just the bio text for simple patterns like dates of birth or test SSNs and writes findings here in near real time.</li>
+        <li><strong>Amazon Macie scan</strong> – Separately, an Amazon Macie classification job scans the S3 bucket with the encrypted profile snapshots and looks for many kinds of sensitive data across the whole object.</li>
+        <li><strong>Macie ingest Lambda</strong> – When Macie finds something, it publishes a finding to Amazon EventBridge. A Lambda normalizes that finding and inserts it into the same findings table.</li>
+        <li><strong>Security Lab UI</strong> – This page calls a secured API to read your findings. Local scanner results are labeled <em>Source: Local scan</em> and Macie results are labeled <em>Source: Macie</em>, so you can see how they complement each other.</li>
+      </ol>
+    <section class="card">
+      <h2>Macie activity</h2>
+      <p id="macieActivity" class="muted">
+        Loading Macie activity…
+      </p>
+      <ul id="macieLog" class="macie-log"></ul>
+    </section>
+    </section>
+    <section class="card">
+      <h2>Your findings</h2>
+      <p id="emptyState" class="muted" style="display:none;margin-top:6px;">
+        No findings yet 🎉 Try adding a fake DOB or SSN to your profile bio.
+      </p>
+      <div id="findingsList" class="findings-list"></div>
+    </section>
+  </div>
+
+  <footer>
+    Changes are stored securely in DynamoDB and scanned for PII.
+  </footer>
+
+  <script>
+    // --- auth / API setup ---
+    const API_BASE = (window.API_BASE || "https://gisdro12yf.execute-api.us-east-1.amazonaws.com").replace(/\/+$/, "");
+    const TOKEN = localStorage.getItem("id_token");
+
+    if (!TOKEN) {
+      const params = new URLSearchParams({ redirect: "/risk-lab.html" });
+      window.location.href = "/login.html?" + params.toString();
+    }
+
+    const statusEl        = document.getElementById("status");
+    const listEl          = document.getElementById("findingsList");
+    const emptyEl         = document.getElementById("emptyState");
+    const logoutBtn       = document.getElementById("logout");
+    const macieActivityEl = document.getElementById("macieActivity");
+    const macieLogEl      = document.getElementById("macieLog");
+
+
+    if (logoutBtn) {
+      logoutBtn.addEventListener("click", () => {
+        localStorage.removeItem("id_token");
+        window.location.href = "/";
+      });
+    }
+
+function updateMacieActivity(items) {
+  if (!macieActivityEl) return;
+
+  const macieItems = items.filter(
+    f => (f.source || "").toLowerCase() === "macie"
+  );
+
+  if (!macieItems.length) {
+    macieActivityEl.textContent =
+      "Amazon Macie hasn’t reported any findings yet. It scans your encrypted S3 snapshots in the background.";
+    if (macieLogEl) macieLogEl.innerHTML = "";
+    return;
+  }
+
+  const times = macieItems
+    .map(f => Date.parse(f.created_at || "") || 0)
+    .filter(t => t);
+
+  const latest = times.length
+    ? new Date(Math.max(...times)).toUTCString()
+    : null;
+
+  macieActivityEl.textContent =
+    `Amazon Macie has produced ${macieItems.length} finding(s).` +
+    (latest ? ` Latest finding: ${latest}.` : "");
+
+  if (macieLogEl) {
+    macieLogEl.innerHTML = macieItems
+      .slice()
+      .sort((a, b) => {
+        const ta = Date.parse(a.created_at || "") || 0;
+        const tb = Date.parse(b.created_at || "") || 0;
+        return tb - ta;
+      })
+      .map(f => {
+        const d      = f.details || {};
+        const bucket = d.bucket || "ssp-profiles-raw";
+        const key    = d.object_key || "";
+        const sev    = (f.severity || "LOW").toUpperCase();
+        const type   = f.type || "MACIE_SENSITIVE_DATA";
+        const when   = fmtDate(f.created_at);
+        const jobId  = d.macie_job_id || "";
+
+        return `<li>
+          <strong>${sev}</strong> ${type} on
+          <code>${bucket}/${key}</code>
+          at ${when}
+          ${jobId ? ` (job ${jobId})` : ""}
+        </li>`;
+      })
+      .join("");
+  }
+}
+
+    // --- helpers ---
+    function fmtDate(s) {
+      if (!s) return "";
+      return s.replace("T", " ").replace("+00:00", " UTC");
+    }
+
+    function severityBadge(sev) {
+      sev = (sev || "LOW").toUpperCase();
+      let cls = "chip chip-green";
+      if (sev === "HIGH") cls = "chip chip-red";
+      else if (sev === "MEDIUM") cls = "chip chip-amber";
+      return `<span class="${cls}">${sev}</span>`;
+    }
+    function sourceBadge(src) {
+      src = (src || "").toLowerCase();
+      if (src === "macie") {
+        return '<span class="chip chip-blue">Source: Macie</span>';
+      }
+      if (src === "local-scan" || src === "local") {
+        return '<span class="chip chip-purple">Source: Local scan</span>';
+      }
+      return `<span class="chip">Source: ${src || "unknown"}</span>`;
+    }
+
+    // --- API calls ---
+async function loadFindings() {
+  statusEl.textContent = "Loading findings…";
+
+  let res;
+  try {
+    res = await fetch(`${API_BASE}/findings`, {
+      headers: { Authorization: `Bearer ${TOKEN}` }
+    });
+  } catch (e) {
+    console.error("Network error:", e);
+    statusEl.textContent = "Failed to load findings (network error)";
+    return;
+  }
+
+  if (!res.ok) {
+    const text = await res.text();
+    console.error("Findings error", res.status, text);
+    statusEl.textContent = `Failed to load findings (${res.status})`;
+    return;
+  }
+
+  // Parse JSON body
+  const data = JSON.parse(await res.text());
+  const items = data.items || [];
+
+  updateMacieActivity(items);
+
+  if (!items.length) {
+    emptyEl.style.display = "block";
+    listEl.innerHTML = "";
+    statusEl.textContent = "No findings";
+    return;
+  }
+
+  emptyEl.style.display = "none";
+  statusEl.textContent = `Loaded ${items.length} findings`;
+
+  listEl.innerHTML = items.map(f => `
+    <article class="finding">
+      <header class="finding-header">
+        ${severityBadge(f.severity)}
+        <span class="type">${f.type || "UNKNOWN"}</span>
+        ${sourceBadge(f.source)}
+      </header>
+      <p class="summary">${f.summary || ""}</p>
+      <p class="meta">
+        Created: ${fmtDate(f.created_at)}
+        ${f.status === "RESOLVED" && f.resolved_at
+          ? "• Resolved: " + fmtDate(f.resolved_at)
+          : ""}
+      </p>
+      <p class="meta">Status: ${f.status || "OPEN"}</p>
+      ${f.details && f.details.sample ? `
+        <details class="sample">
+          <summary>Show sample text</summary>
+          <pre>${f.details.sample}</pre>
+        </details>
+      ` : ""}
+      ${f.status !== "RESOLVED" ? `
+        <button class="btn-primary resolve-btn" data-id="${f.id}">
+          Mark resolved
+        </button>
+      ` : ""}
+    </article>
+  `).join("");
+
+  listEl.querySelectorAll(".resolve-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const id = btn.getAttribute("data-id");
+      resolveFinding(id);
+    });
+  });
+
+  // (Optional) you can call a helper here to update the Macie activity card
+  // using `items` if you want the job-id log, but get this working first.
+}
+
+
+    async function resolveFinding(id) {
+      if (!id) return;
+
+      try {
+        const res = await fetch(`${API_BASE}/findings/resolve`, {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${TOKEN}`,
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({ id })
+        });
+
+        if (!res.ok) {
+          const text = await res.text();
+          console.error("Resolve error", res.status, text);
+          alert("Failed to resolve finding (" + res.status + ")");
+          return;
+        }
+
+        await loadFindings();
+      } catch (e) {
+        console.error("Resolve network error:", e);
+        alert("Network error resolving finding");
+      }
+    }
+
+    // initial load
+    loadFindings();
+  </script>
+</body>
+</html>

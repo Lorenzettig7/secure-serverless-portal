@@ -104,7 +104,31 @@ module "app_profile" {
   profiles_table_name      = module.data.profiles_table_name
   profiles_table_arn       = module.data.profiles_table_arn
   profiles_kms_key_arn     = module.data.profiles_kms_key_arn
+  findings_table_name      = module.data.findings_table_name
+  findings_table_arn       = module.data.findings_table_arn
+  allowed_origin           = "https://portal.secureschoolcloud.org"
+  profiles_raw_bucket_name = module.data.profiles_raw_bucket_name
+  portal_kms_key_arn       = module.data.portal_kms_key_arn
+  portal_bucket_name       = module.edge.web_bucket
+  waf_web_acl_arn          = module.edge.web_acl_arn
+
 }
+module "app_posture" {
+  source                   = "./modules/app_posture"
+  project_prefix           = var.project_prefix
+  region                   = var.region
+  common_tags              = local.common_tags
+  api_id                   = module.app_profile.api_id
+  authorizer_id            = module.app_profile.authorizer_id
+  private_subnet_ids       = module.network.private_subnet_ids
+  lambda_security_group_id = module.network.lambda_security_group_id
+  profiles_table_name      = module.data.profiles_table_name
+  portal_kms_key_arn       = module.data.portal_kms_key_arn
+  portal_bucket_name       = module.edge.web_bucket
+  waf_web_acl_arn          = module.edge.web_acl_arn
+  allowed_origin           = "https://portal.secureschoolcloud.org"
+}
+
 
 # App: Telemetry (Lambda + API route; reuses app_profile’s API + authorizer)
 module "app_telemetry" {

@@ -1,0 +1,389 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Security Overview • SchoolCloud Portal</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    :root { color-scheme: light; }
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: radial-gradient(circle at top, #e0ecff 0, #f5f5f7 38%, #e5e7eb 100%);
+      color: #111827;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    header {
+      max-width: 960px;
+      margin: 0 auto;
+      padding: 18px 16px 8px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .logo-mark {
+      width: 32px;
+      height: 32px;
+      border-radius: 999px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.9rem;
+      font-weight: 600;
+      background: linear-gradient(135deg, #4f46e5, #06b6d4);
+      color: #fff;
+    }
+
+    nav {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      font-size: 0.9rem;
+    }
+
+    nav a {
+      color: #4b5563;
+      text-decoration: none;
+      padding: 4px 8px;
+      border-radius: 999px;
+    }
+
+    nav a:hover {
+      background: rgba(148,163,184,0.16);
+    }
+
+    #logout {
+      border-radius: 999px;
+      border: none;
+      padding: 6px 10px;
+      font-size: 0.8rem;
+      cursor: pointer;
+      background: #f3f4f6;
+      color: #374151;
+    }
+    #logout:hover { background: #e5e7eb; }
+
+    main {
+      max-width: 960px;
+      margin: 0 auto;
+      padding: 12px 16px 32px;
+      flex: 1;
+      width: 100%;
+    }
+
+    h1 {
+      font-size: clamp(1.6rem, 2.4vw, 1.9rem);
+      margin: 0 0 4px;
+    }
+
+    .muted {
+      color: #6b7280;
+      font-size: 0.85rem;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 16px;
+      margin-top: 20px;
+    }
+
+    .card {
+      background: rgba(255,255,255,0.9);
+      border-radius: 16px;
+      padding: 14px 14px 12px;
+      box-shadow: 0 14px 36px rgba(15,23,42,0.12);
+      border: 1px solid rgba(148,163,184,0.35);
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .indicator {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    .dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 999px;
+    }
+
+    .dot.green { background: #16a34a; box-shadow: 0 0 0 4px rgba(22,163,74,0.18); }
+    .dot.yellow { background: #eab308; box-shadow: 0 0 0 4px rgba(234,179,8,0.18); }
+    .dot.red { background: #dc2626; box-shadow: 0 0 0 4px rgba(220,38,38,0.18); }
+    .dot.gray { background: #9ca3af; }
+
+    .card-title {
+      font-weight: 600;
+      font-size: 0.95rem;
+    }
+
+    .card-body {
+      font-size: 0.85rem;
+      color: #4b5563;
+    }
+
+    .card-body ul {
+      margin: 6px 0 0;
+      padding-left: 18px;
+    }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 10px;
+      border-radius: 999px;
+      background: rgba(37,99,235,0.08);
+      border: 1px solid rgba(129,140,248,0.45);
+      font-size: 0.75rem;
+      color: #1d4ed8;
+      margin-top: 8px;
+    }
+
+    #status {
+      margin-top: 8px;
+      font-size: 0.85rem;
+    }
+
+    .status-bad   { color: #b91c1c; }
+    .status-warn  { color: #b45309; }
+    .status-good  { color: #15803d; }
+    .status-muted { color: #6b7280; }
+  </style>
+</head>
+<body>
+  <header>
+    <div style="display:flex;align-items:center;gap:10px;">
+      <div class="logo-mark">SC</div>
+      <div>
+        <div style="font-weight:600;">SchoolCloud Portal</div>
+        <div class="muted" style="font-size:0.8rem;">Security posture overview (admins)</div>
+      </div>
+    </div>
+    <nav>
+      <a href="/">Home</a>
+      <a href="/profile.html">Profile</a>
+      <a href="/activity.html">Activity &amp; Logs</a>
+      <a href="/risk-lab.html">Security Lab</a>
+      <a href="/security-overview.html"><strong>Security Overview</strong></a>
+      <button id="logout" type="button">Logout</button>
+    </nav>
+  </header>
+
+  <main>
+    <h1>Security posture dashboard</h1>
+    <div class="muted">
+      Read-only snapshot of key AWS security services behind this portal.
+      Only admins can view this page.
+    </div>
+    <div class="pill">
+      <span>Signals included:</span>
+      <span>CloudTrail</span> • <span>GuardDuty</span> • <span>Security Hub</span> • <span>Config</span> • <span>WAF</span> • <span>Encryption</span>
+    </div>
+
+    <div id="status" class="status-muted">Loading posture…</div>
+
+    <div id="grid" class="grid" style="display:none;"></div>
+  </main>
+
+  <script>
+    const API_BASE = (window.API_BASE || "https://gisdro12yf.execute-api.us-east-1.amazonaws.com").replace(/\/+$/,'');
+    const TOKEN = localStorage.getItem("id_token");
+
+    if (!TOKEN) {
+      const params = new URLSearchParams({ redirect: "/security-overview.html" });
+      window.location.href = "/login.html?" + params.toString();
+    }
+
+    // logout
+    const logoutBtn = document.getElementById("logout");
+    if (logoutBtn) {
+      logoutBtn.addEventListener("click", () => {
+        localStorage.removeItem("id_token");
+        window.location.href = "/";
+      });
+    }
+
+    const statusEl = document.getElementById("status");
+    const gridEl   = document.getElementById("grid");
+
+    function indicatorColor(obj) {
+      // basic mapping for each section
+      if (!obj || obj.ok === false) return "red";
+      return "green";
+    }
+
+    function sevSummary(sev) {
+      if (!sev) return "No sample findings (latest batch).";
+      const total = (sev.CRITICAL || 0) + (sev.HIGH || 0) + (sev.MEDIUM || 0) + (sev.LOW || 0);
+      if (!total) return "No sampled findings in latest batch.";
+      const parts = [];
+      ["CRITICAL","HIGH","MEDIUM","LOW"].forEach(k => {
+        if (sev[k]) parts.push(`${k}: ${sev[k]}`);
+      });
+      return `${total} sampled findings (latest batch). ${parts.join(", ")}`;
+    }
+
+    function render(posture) {
+      gridEl.innerHTML = "";
+      gridEl.style.display = "grid";
+
+      const cards = [];
+
+      const ct = posture.cloudtrail || {};
+      cards.push({
+        key: "cloudtrail",
+        title: "CloudTrail",
+        color: (ct.ok && ct.multi_region) ? "green" : (ct.ok ? "yellow" : "red"),
+        body: `
+          <ul>
+            <li>Trails configured: ${ct.details?.trail_count ?? "?"}</li>
+            <li>Multi-region logging: ${ct.multi_region ? "Yes" : "No"}</li>
+          </ul>
+        `
+      });
+
+      const gd = posture.guardduty || {};
+      cards.push({
+        key: "guardduty",
+        title: "GuardDuty",
+        color: gd.enabled ? "green" : "red",
+        body: `<ul><li>Detector enabled: ${gd.enabled ? "Yes" : "No"}</li></ul>`
+      });
+
+      const sh = posture.securityhub || {};
+      cards.push({
+        key: "securityhub",
+        title: "Security Hub",
+        color: sh.enabled ? "green" : "red",
+        body: `<ul>
+          <li>Enabled: ${sh.enabled ? "Yes" : "No"}</li>
+          <li>${sevSummary(sh.severity_counts)}</li>
+        </ul>`
+      });
+
+      const cfg = posture.config || {};
+      cards.push({
+        key: "config",
+        title: "AWS Config",
+        color: cfg.ok ? "green" : "gray",
+        body: `<ul>
+          <li>Compliant resources: ${cfg.compliant ?? "0"}</li>
+          <li>Non-compliant resources: ${cfg.non_compliant ?? "0"}</li>
+        </ul>`
+      });
+
+      const waf = posture.waf || {};
+      cards.push({
+        key: "waf",
+        title: "WAF (24h sample)",
+        color: waf.ok ? "green" : "gray",
+        body: `<ul>
+          <li>Sampled allowed: ${waf.allowed_24h_sample ?? 0}</li>
+          <li>Sampled blocked: ${waf.blocked_24h_sample ?? 0}</li>
+        </ul>`
+      });
+
+      const enc = posture.encryption || {};
+      const bucket = enc.bucket || {};
+      const tbl = enc.profiles_table || {};
+      cards.push({
+        key: "encryption",
+        title: "Encryption",
+        color: enc.ok ? "green" : ((bucket.sse && bucket.public_blocked && !tbl.cmk_encrypted) ? "yellow" : "red"),
+        body: `<ul>
+          <li>Portal bucket SSE: ${bucket.sse ? "On" : "Off/Unknown"}</li>
+          <li>Portal bucket public access blocked: ${bucket.public_blocked ? "Yes" : "No/Unknown"}</li>
+          <li>Profiles table encrypted with CMK: ${tbl.cmk_encrypted ? "Yes" : "No/Unknown"}</li>
+        </ul>`
+      });
+
+      for (const c of cards) {
+        const color = c.color || "gray";
+        const card = document.createElement("section");
+        card.className = "card";
+        card.innerHTML = `
+          <div class="card-header">
+            <div class="card-title">${c.title}</div>
+            <div class="indicator">
+              <span class="dot ${color}"></span>
+              <span>${color.toUpperCase()}</span>
+            </div>
+          </div>
+          <div class="card-body">${c.body}</div>
+        `;
+        gridEl.appendChild(card);
+      }
+    }
+
+    async function loadPosture() {
+      statusEl.textContent = "Loading posture...";
+      statusEl.className = "status-muted";
+
+      try {
+        const r = await fetch(API_BASE + "/security/posture", {
+          method: "GET",
+          headers: {
+            "Authorization": "Bearer " + TOKEN,
+            "Accept": "application/json"
+          }
+        });
+
+        if (r.status === 403) {
+          statusEl.textContent = "You are signed in, but this dashboard is restricted to admins.";
+          statusEl.className = "status-bad";
+          gridEl.style.display = "none";
+          return;
+        }
+
+        if (!r.ok) {
+          statusEl.textContent = `Failed to load posture (${r.status})`;
+          statusEl.className = "status-bad";
+          gridEl.style.display = "none";
+          return;
+        }
+
+        const data = await r.json();
+        if (!data.ok) {
+          statusEl.textContent = "Posture Lambda returned an error.";
+          statusEl.className = "status-bad";
+          gridEl.style.display = "none";
+          return;
+        }
+
+        render(data.posture);
+        statusEl.textContent = `Last updated: ${data.posture.timestamp}`;
+        statusEl.className = "status-good";
+      } catch (e) {
+        console.error("Posture fetch error", e);
+        statusEl.textContent = "Network error loading posture.";
+        statusEl.className = "status-bad";
+      }
+    }
+
+    loadPosture();
+  </script>
+</body>
+</html>
