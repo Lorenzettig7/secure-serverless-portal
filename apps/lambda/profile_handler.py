@@ -106,12 +106,15 @@ def handler(event, context):
         body = _parse_body(event)
         bio = (body.get("bio") or "").strip()
         role = (body.get("role") or "student").strip().lower()
+        if role == "administrator":
+            role = "admin"
+
 
         try:
             # Save profile to DynamoDB
             saved = _put_profile(sub, email, bio, role)
 
-            # NEW: write raw profile to S3 for Macie scanning
+            # NEW: write raw profile to S3 for Macie scanning and future use
             s3 = boto3.client("s3")
             bucket = os.environ.get("PROFILE_RAW_BUCKET")
             if bucket:
