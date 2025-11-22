@@ -117,10 +117,8 @@
       display: inline-flex;
       align-items: center;
       gap: 6px;
-      font-size: 0.8rem;
-      font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: 0.04em;
+      font-size: 0.75rem;
+      color: #6b7280;
     }
 
     .dot {
@@ -229,12 +227,6 @@
     const statusEl = document.getElementById("status");
     const gridEl   = document.getElementById("grid");
 
-    function indicatorColor(obj) {
-      // basic mapping for each section
-      if (!obj || obj.ok === false) return "red";
-      return "green";
-    }
-
     function sevSummary(sev) {
       if (!sev) return "No sample findings (latest batch).";
       const total = (sev.CRITICAL || 0) + (sev.HIGH || 0) + (sev.MEDIUM || 0) + (sev.LOW || 0);
@@ -252,19 +244,26 @@
 
       const cards = [];
 
+      // CloudTrail
       const ct = posture.cloudtrail || {};
+      const ctTrailCount = (ct.trail_count ?? (ct.details && ct.details.trail_count) ?? 0);
+      const ctConfigured = ct.ok && ctTrailCount > 0;
+      const ctMultiRegion = ct.ok && !!(ct.multi_region ?? ct.enabled);
+      const ctColor = !ct.ok ? "red" : (ctMultiRegion ? "green" : "yellow");
+
       cards.push({
         key: "cloudtrail",
         title: "CloudTrail",
-        color: (ct.ok && ct.multi_region) ? "green" : (ct.ok ? "yellow" : "red"),
+        color: ctColor,
         body: `
           <ul>
-            <li>Trails configured: ${ct.details?.trail_count ?? "?"}</li>
-            <li>Multi-region logging: ${ct.multi_region ? "Yes" : "No"}</li>
+            <li>Trails configured: ${ctConfigured ? "Yes" : "No"}</li>
+            <li>Multi-region logging: ${ctMultiRegion ? "Yes" : "No"}</li>
           </ul>
         `
       });
 
+      // GuardDuty
       const gd = posture.guardduty || {};
       cards.push({
         key: "guardduty",
@@ -273,6 +272,7 @@
         body: `<ul><li>Detector enabled: ${gd.enabled ? "Yes" : "No"}</li></ul>`
       });
 
+      // Security Hub
       const sh = posture.securityhub || {};
       cards.push({
         key: "securityhub",
@@ -284,6 +284,7 @@
         </ul>`
       });
 
+      // AWS Config
       const cfg = posture.config || {};
       cards.push({
         key: "config",
@@ -295,6 +296,7 @@
         </ul>`
       });
 
+      // WAF
       const waf = posture.waf || {};
       cards.push({
         key: "waf",
@@ -306,13 +308,18 @@
         </ul>`
       });
 
+      // Encryption
       const enc = posture.encryption || {};
       const bucket = enc.bucket || {};
       const tbl = enc.profiles_table || {};
+      const encColor = enc.ok
+        ? "green"
+        : ((bucket.sse && bucket.public_blocked && !tbl.cmk_encrypted) ? "yellow" : "red");
+
       cards.push({
         key: "encryption",
         title: "Encryption",
-        color: enc.ok ? "green" : ((bucket.sse && bucket.public_blocked && !tbl.cmk_encrypted) ? "yellow" : "red"),
+        color: encColor,
         body: `<ul>
           <li>Portal bucket SSE: ${bucket.sse ? "On" : "Off/Unknown"}</li>
           <li>Portal bucket public access blocked: ${bucket.public_blocked ? "Yes" : "No/Unknown"}</li>
@@ -352,7 +359,7 @@
         });
 
         if (r.status === 403) {
-          statusEl.textContent = "You are signed in, but this dashboard is restricted to admins.";
+          statusEl.textContent = "You are signed in, but this dashboard is restricted to admins. Please select Administrator as your role to view this page.";
           statusEl.className = "status-bad";
           gridEl.style.display = "none";
           return;
@@ -374,12 +381,19 @@
         }
 
         render(data.posture);
-        statusEl.textContent = `Last updated: ${data.posture.timestamp}`;
+
+        // Timestamp: use backend timestamp if present, otherwise "now"
+        const rawTs = data.posture.timestamp || new Date().toISOString();
+        const tsDate = new Date(rawTs);
+        const displayTs = isNaN(tsDate.getTime()) ? rawTs : tsDate.toLocaleString();
+
+        statusEl.textContent = `Last updated: ${displayTs}`;
         statusEl.className = "status-good";
       } catch (e) {
-        console.error("Posture fetch error", e);
-        statusEl.textContent = "Network error loading posture.";
+        console.error("Failed to load posture", e);
+        statusEl.textContent = "Failed to load posture (network error)";
         statusEl.className = "status-bad";
+        gridEl.style.display = "none";
       }
     }
 

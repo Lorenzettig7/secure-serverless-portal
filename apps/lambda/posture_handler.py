@@ -1,273 +1,356 @@
-import os
 import json
-import logging
-from datetime import datetime, timezone, timedelta
-
+import os
 import boto3
-from botocore.config import Config
-from botocore.exceptions import ClientError, BotoCoreError
+import logging
+from datetime import datetime, timedelta, timezone
+from botocore.exceptions import ClientError
 
-logger = logging.getLogger()
-logger.setLevel(logging.INFO)
+log = logging.getLogger()
+log.setLevel(logging.INFO)
 
-AWS_CONFIG = Config(connect_timeout=2, read_timeout=3, retries={"max_attempts": 2})
+# DynamoDB for profiles
+dynamodb_res = boto3.resource("dynamodb")
+PROFILES_TABLE_NAME = os.environ["PROFILES_TABLE_NAME"]
+PROFILES_TABLE = dynamodb_res.Table(PROFILES_TABLE_NAME)
 
-REGION = os.environ.get("AWS_REGION", "us-east-1")
-ALLOWED_ORIGIN = os.environ.get("ALLOWED_ORIGIN", "*")
-PORTAL_BUCKET_NAME = os.environ.get("PORTAL_BUCKET_NAME")
-PROFILES_TABLE_NAME = os.environ.get("PROFILES_TABLE_NAME")
-WAF_WEBACL_ARN = os.environ.get("WAF_WEBACL_ARN")
+# Other AWS clients
+ct_client = boto3.client("cloudtrail")
+gd_client = boto3.client("guardduty")
+sh_client = boto3.client("securityhub")
+cfg_client = boto3.client("config")
+waf_client = boto3.client("wafv2")
+s3_client = boto3.client("s3")
+ddb_client = boto3.client("dynamodb")
+
+WAF_WEBACL_ARN = os.environ.get("WAF_WEBACL_ARN", "")
 WAF_SAMPLE_RULE = os.environ.get("WAF_SAMPLE_RULE", "Default_Action")
-
-cloudtrail = boto3.client("cloudtrail", config=AWS_CONFIG)
-guardduty = boto3.client("guardduty", config=AWS_CONFIG)
-securityhub = boto3.client("securityhub", region_name=os.environ.get("SECURITY_HUB_REGION", REGION), config=AWS_CONFIG)
-config_svc = boto3.client("config", config=AWS_CONFIG)
-waf = boto3.client("wafv2", config=AWS_CONFIG)
-s3 = boto3.client("s3", config=AWS_CONFIG)
-dynamodb = boto3.client("dynamodb", config=AWS_CONFIG)
+PORTAL_BUCKET_NAME = os.environ.get("PORTAL_BUCKET_NAME", "")
+ALLOWED_ORIGIN = os.environ.get("ALLOWED_ORIGIN", "*")
 
 
-# ---------- helpers ----------
-
-def _resp(status, body):
-    headers = {
-        "Content-Type": "application/json",
-        "Access-Control-Allow-Origin": ALLOWED_ORIGIN,
-        "Access-Control-Allow-Credentials": "true",
+def resp(status, body):
+    return {
+        "statusCode": status,
+        "headers": {
+            "Content-Type": "application/json",
+            "Access-Control-Allow-Origin": ALLOWED_ORIGIN,
+            "Access-Control-Allow-Headers": "Authorization,Content-Type",
+        },
+        "body": json.dumps(body),
     }
-    return {"statusCode": status, "headers": headers, "body": json.dumps(body)}
 
 
-def _claims(event):
-    jwt = event.get("requestContext", {}).get("authorizer", {}).get("jwt", {})
-    return jwt.get("claims") or {}
+def get_claims(event):
+    rc = event.get("requestContext", {})
+    auth = rc.get("authorizer", {})
+
+    # HTTP API + JWT
+    if "jwt" in auth:
+        return auth["jwt"].get("claims", {}) or {}
+
+    # REST API fallback
+    return auth.get("claims", {}) or {}
 
 
-def _now_iso():
-    return datetime.now(timezone.utc).isoformat()
+# -------- posture helpers -------- #
 
-
-def _get_profile_role(sub: str | None) -> str | None:
-    """Look up the user's role from the profiles DynamoDB table."""
-    if not sub or not PROFILES_TABLE_NAME:
-        logger.info("No sub or PROFILES_TABLE_NAME; treating as non-admin")
-        return None
-
+def cloudtrail_status():
     try:
-        resp = dynamodb.get_item(
-            TableName=PROFILES_TABLE_NAME,
-            Key={"id": {"S": sub}},
-        )
-    except (ClientError, BotoCoreError) as e:
-     logger.error("Config error: %s", e, exc_info=True)
-     return {"ok": False, "error": "config_error"}
-
-
-    item = resp.get("Item")
-    if not item:
-        logger.info("No profile row for sub %s; treating as non-admin", sub)
-        return None
-
-    role_attr = item.get("role") or item.get("Role")
-    if isinstance(role_attr, dict) and "S" in role_attr:
-        # DynamoDB client format
-        role_value = role_attr["S"]
-    else:
-        # Just in case
-        role_value = str(role_attr)
-
-    role_value = (role_value or "").lower()
-    logger.info("Profile role for sub %s is %s", sub, role_value)
-    return role_value
-
-
-def _is_admin(claims):
-    return True 
-#test
-
-# ---------- individual checks ----------
-
-def check_cloudtrail():
-    try:
-        resp = cloudtrail.describe_trails()
-        trails = resp.get("trailList", [])
-        enabled_trails = [t for t in trails if t.get("HomeRegion")]
-        multi_region = any(t.get("IsMultiRegionTrail") for t in enabled_trails)
+        trails = ct_client.describe_trails().get("trailList", [])
+        trail_count = len(trails)
+        multi_region = any(t.get("IsMultiRegionTrail") for t in trails)
+        ok = trail_count > 0 and multi_region
         return {
-            "ok": bool(enabled_trails),
-            "multi_region": bool(multi_region),
-            "details": {"trail_count": len(trails)},
+            "ok": ok,
+            "trail_count": trail_count,
+            "multi_region": multi_region,
         }
-    except (ClientError, BotoCoreError) as e:
-        logger.error("Config error: %s", e, exc_info=True)
-        return {"ok": False, "error": "config_error"}
+    except Exception as e:
+        log.exception("CloudTrail check failed")
+        return {
+            "ok": False,
+            "trail_count": 0,
+            "multi_region": False,
+            "error": str(e),
+        }
 
 
-
-def check_guardduty():
+def guardduty_status():
     try:
-        detectors = guardduty.list_detectors().get("DetectorIds", [])
+        detectors = gd_client.list_detectors().get("DetectorIds", [])
         if not detectors:
-            return {"ok": False, "enabled": False}
-        det = guardduty.get_detector(DetectorId=detectors[0])
+            return {"enabled": False}
+        det_id = detectors[0]
+        det = gd_client.get_detector(DetectorId=det_id)
         enabled = det.get("Status") == "ENABLED"
-        return {"ok": enabled, "enabled": enabled}
-    except (ClientError, BotoCoreError) as e:
-        logger.error("Config error: %s", e, exc_info=True)
-        return {"ok": False, "error": "guardduty_error"}
+        return {"enabled": enabled}
+    except Exception as e:
+        log.exception("GuardDuty check failed")
+        return {"enabled": False, "error": str(e)}
 
 
-def check_security_hub():
+def securityhub_status():
+    enabled = False
+    severity_counts = {"CRITICAL": 0, "HIGH": 0, "MEDIUM": 0, "LOW": 0}
+
+    # Is Security Hub enabled?
     try:
-        securityhub.describe_hub()
+        sh_client.describe_hub()
         enabled = True
     except ClientError as e:
-        code = e.response.get("Error", {}).get("Code")
-        if code in ("InvalidAccessException", "ResourceNotFoundException"):
-            return {"ok": False, "enabled": False}
-        logger.error("Security Hub describe_hub ClientError: %s", e, exc_info=True)
-        return {"ok": False, "error": "securityhub_error"}
-    except BotoCoreError as e:
-        logger.error("Security Hub describe_hub BotoCoreError: %s", e, exc_info=True)
-        return {"ok": False, "error": "securityhub_error"}
-    
-        if method == "GET" and raw_path.endswith("/security/posture"):
-            logger.info("Running posture checks for admin %s", claims.get("sub"))
+        code = e.response["Error"]["Code"]
+        if code in ("InvalidAccessException", "AccessDeniedException"):
+            # Not enabled → just show disabled
+            return {"enabled": False, "severity_counts": severity_counts}
+        log.exception("Security Hub describe failed")
+        return {
+            "enabled": False,
+            "severity_counts": severity_counts,
+            "error": str(e),
+        }
+    except Exception as e:
+        log.exception("Security Hub describe failed")
+        return {
+            "enabled": False,
+            "severity_counts": severity_counts,
+            "error": str(e),
+        }
 
-        try:
-            posture = {
-                "timestamp": _now_iso(),
-                "cloudtrail": check_cloudtrail(),
-                "guardduty": check_guardduty(),
-                "securityhub": check_security_hub(),
-                "config": check_config(),
-                "waf": check_waf(),
-                "encryption": check_encryption(),
-            }
-            return _resp(200, {"ok": True, "posture": posture})
-        except Exception as e:
-            logger.exception("Posture handler crashed")
-            return _resp(500, {"message": "Posture error", "error": str(e)})
-
-
-    severities = {"CRITICAL": 0, "HIGH": 0, "MEDIUM": 0, "LOW": 0}
+    # If enabled, sample some ACTIVE findings
     try:
-        resp = securityhub.get_findings(MaxResults=50)
-        for f in resp.get("Findings", []):
-            sev = (f.get("Severity", {}).get("Label") or "").upper()
-            if sev in severities:
-                severities[sev] += 1
-    except (ClientError, BotoCoreError) as e:
-        logger.warning("Security Hub get_findings error: %s", e)
+        paginator = sh_client.get_paginator("get_findings")
+        for page in paginator.paginate(
+            Filters={
+                "RecordState": [{"Value": "ACTIVE", "Comparison": "EQUALS"}],
+            },
+            PaginationConfig={"PageSize": 25},
+        ):
+            for f in page.get("Findings", []):
+                label = (f.get("Severity", {}).get("Label") or "").upper()
+                if label in severity_counts:
+                    severity_counts[label] += 1
+    except Exception as e:
+        log.exception("Security Hub findings failed")
+        return {
+            "enabled": enabled,
+            "severity_counts": severity_counts,
+            "error": str(e),
+        }
 
-    return {"ok": enabled, "enabled": enabled, "severity_counts": severities}
+    return {"enabled": enabled, "severity_counts": severity_counts}
 
 
-def check_config():
+def config_status():
     try:
-        resp = config_svc.get_compliance_summary_by_config_rule()
-        summary = resp.get("ComplianceSummary", {})
+        summary = cfg_client.get_compliance_summary_by_config_rule().get(
+            "ComplianceSummary", {}
+        )
+        compliant = summary.get("CompliantResourceCount", {}).get("CappedCount", 0)
+        non_compliant = summary.get("NonCompliantResourceCount", {}).get(
+            "CappedCount", 0
+        )
         return {
             "ok": True,
-            "compliant": summary.get("CompliantResourceCount", {}).get("CappedCount", 0),
-            "non_compliant": summary.get("NonCompliantResourceCount", {}).get("CappedCount", 0),
+            "compliant": compliant,
+            "non_compliant": non_compliant,
         }
-    except (ClientError, BotoCoreError) as e:
-        logger.error("Config error: %s", e, exc_info=True)
-        return {"ok": False, "error": "config_error"}
+    except Exception as e:
+        log.exception("Config summary failed")
+        return {
+            "ok": False,
+            "compliant": 0,
+            "non_compliant": 0,
+            "error": str(e),
+        }
 
 
-def check_waf():
+def waf_status():
     if not WAF_WEBACL_ARN:
-        return {"ok": False, "error": "no_webacl_arn"}
+        return {
+            "ok": False,
+            "allowed_24h_sample": 0,
+            "blocked_24h_sample": 0,
+            "error": "WAF_WEBACL_ARN not set",
+        }
 
     end = datetime.now(timezone.utc)
     start = end - timedelta(hours=24)
+
     try:
-        resp = waf.get_sampled_requests(
+        resp = waf_client.get_sampled_requests(
             WebAclArn=WAF_WEBACL_ARN,
             RuleMetricName=WAF_SAMPLE_RULE,
-            Scope="CLOUDFRONT",
+            Scope="CLOUDFRONT",  # your ACL ARN is 'global'
             TimeWindow={"StartTime": start, "EndTime": end},
-            MaxItems=1000,
+            MaxItems=100,
         )
         sampled = resp.get("SampledRequests", [])
-        blocked = sum(1 for r in sampled if r.get("Action") == "BLOCK")
         allowed = sum(1 for r in sampled if r.get("Action") == "ALLOW")
-        return {"ok": True, "blocked_24h_sample": blocked, "allowed_24h_sample": allowed}
-    except (ClientError, BotoCoreError) as e:
-        logger.error("WAF error: %s", e, exc_info=True)
-        return {"ok": False, "error": "waf_error"}
+        blocked = sum(1 for r in sampled if r.get("Action") == "BLOCK")
+        return {
+            "ok": True,
+            "allowed_24h_sample": allowed,
+            "blocked_24h_sample": blocked,
+        }
+    except Exception as e:
+        log.exception("WAF check failed")
+        return {
+            "ok": False,
+            "allowed_24h_sample": 0,
+            "blocked_24h_sample": 0,
+            "error": str(e),
+        }
 
 
-def check_encryption():
-    bucket = {"sse": False, "public_blocked": False}
-    table = {"cmk_encrypted": False}
+def portal_bucket_status():
+    sse = False
+    public_blocked = False
+    enc_error = pab_error = None
 
-    if PORTAL_BUCKET_NAME:
-        try:
-            enc = s3.get_bucket_encryption(Bucket=PORTAL_BUCKET_NAME)
-            rules = enc.get("ServerSideEncryptionConfiguration", {}).get("Rules", [])
-            bucket["sse"] = bool(rules)
-        except ClientError as e:
-            code = e.response.get("Error", {}).get("Code")
-            if code != "ServerSideEncryptionConfigurationNotFoundError":
-                logger.error("S3 encryption ClientError: %s", e, exc_info=True)
-        except BotoCoreError as e:
-            logger.error("S3 encryption BotoCoreError: %s", e, exc_info=True)
+    if not PORTAL_BUCKET_NAME:
+        return {
+            "sse": False,
+            "public_blocked": False,
+            "encryption_error": "PORTAL_BUCKET_NAME not set",
+            "public_access_error": None,
+        }
 
-        try:
-            pab = s3.get_public_access_block(Bucket=PORTAL_BUCKET_NAME)
-            cfg = pab.get("PublicAccessBlockConfiguration", {})
-            bucket["public_blocked"] = all(cfg.get(k, False) for k in (
-                "BlockPublicAcls", "BlockPublicPolicy", "IgnorePublicAcls", "RestrictPublicBuckets"
-            ))
-        except (ClientError, BotoCoreError) as e:
-            logger.error("S3 PAB error: %s", e, exc_info=True)
+    # SSE
+    try:
+        enc = s3_client.get_bucket_encryption(Bucket=PORTAL_BUCKET_NAME)
+        rules = enc.get("ServerSideEncryptionConfiguration", {}).get("Rules", [])
+        sse = len(rules) > 0
+    except ClientError as e:
+        if (
+            e.response["Error"]["Code"]
+            != "ServerSideEncryptionConfigurationNotFoundError"
+        ):
+            log.exception("Bucket encryption check failed")
+            enc_error = str(e)
+    except Exception as e:
+        log.exception("Bucket encryption check failed")
+        enc_error = str(e)
 
-    if PROFILES_TABLE_NAME:
-        try:
-            desc = dynamodb.describe_table(TableName=PROFILES_TABLE_NAME)
-            sse = desc.get("Table", {}).get("SSEDescription", {})
-            key_type = sse.get("SSEType")
-            kms_master = sse.get("KMSMasterKeyArn")
-            table["cmk_encrypted"] = key_type == "KMS" and bool(kms_master)
-        except (ClientError, BotoCoreError) as e:
-            logger.error("DynamoDB describe error: %s", e, exc_info=True)
-            #update 
+    # Public access block
+    try:
+        pab = s3_client.get_bucket_public_access_block(Bucket=PORTAL_BUCKET_NAME)
+        cfg_pab = pab.get("PublicAccessBlockConfiguration", {})
+        public_blocked = all(
+            cfg_pab.get(k, False)
+            for k in [
+                "BlockPublicAcls",
+                "IgnorePublicAcls",
+                "BlockPublicPolicy",
+                "RestrictPublicBuckets",
+            ]
+        )
+    except ClientError as e:
+        if e.response["Error"]["Code"] != "NoSuchPublicAccessBlockConfiguration":
+            log.exception("Bucket public access block check failed")
+            pab_error = str(e)
+    except Exception as e:
+        log.exception("Bucket public access block check failed")
+        pab_error = str(e)
+
     return {
-        "ok": bucket["sse"] and bucket["public_blocked"] and table["cmk_encrypted"],
-        "bucket": bucket,
-        "profiles_table": table,
+        "sse": sse,
+        "public_blocked": public_blocked,
+        "encryption_error": enc_error,
+        "public_access_error": pab_error,
     }
 
 
-# ---------- handler ----------
+def profiles_table_encryption_status():
+    cmk_encrypted = False
+    error = None
+    try:
+        desc = ddb_client.describe_table(TableName=PROFILES_TABLE_NAME)
+        sse = desc.get("Table", {}).get("SSEDescription", {})
+        key_arn = sse.get("KMSMasterKeyArn")
+        if key_arn:
+            cmk_encrypted = True
+    except Exception as e:
+        log.exception("Profiles table encryption check failed")
+        error = str(e)
+
+    return {"cmk_encrypted": cmk_encrypted, "error": error}
+
+
+# -------- Lambda handler -------- #
 
 def handler(event, context):
-    method = event.get("requestContext", {}).get("http", {}).get("method", "GET")
-    raw_path = event.get("rawPath", "/")
+    log.info("EVENT: %s", json.dumps(event))
 
-    if method == "OPTIONS":
-        return _resp(200, {"ok": True})
+    try:
+        # 1. Auth & claims
+        claims = get_claims(event)
+        sub = claims.get("sub")
+        email = claims.get("email")
 
-    claims = _claims(event)
-    if not _is_admin(claims):
-        return _resp(403, {"message": "Admins only"})
+        if not sub:
+            log.warning("No sub in claims: %s", claims)
+            return resp(401, {"message": "Unauthorized (missing sub claim)"})
 
-    if method == "GET" and raw_path.endswith("/security/posture"):
-        logger.info("Running posture checks for admin %s", claims.get("sub"))
+        # 2. Load profile
+        try:
+            ddb_resp = PROFILES_TABLE.get_item(Key={"id": sub})
+            profile = ddb_resp.get("Item") or {}
+            log.info("Loaded profile for %s: %s", sub, profile)
+        except Exception as e:
+            log.exception("Error reading profile from DynamoDB")
+            return resp(
+                500,
+                {
+                    "message": "Failed to load profile",
+                    "error": str(e),
+                    "error_type": type(e).__name__,
+                },
+            )
+
+        role = profile.get("role", "student")
+        log.info("Posture request from %s (%s) role=%s", email, sub, role)
+
+        if role != "admin":
+            return resp(403, {"message": "Admin access required"})
+
+        # 3. Build posture
+        ct_status = cloudtrail_status()
+        gd_status = guardduty_status()
+        sh_status = securityhub_status()
+        cfg_status = config_status()
+        waf_status_obj = waf_status()
+        bucket_status = portal_bucket_status()
+        profiles_enc = profiles_table_encryption_status()
+
+        enc_ok = (
+            bucket_status.get("sse", False)
+            and bucket_status.get("public_blocked", False)
+            and profiles_enc.get("cmk_encrypted", False)
+        )
 
         posture = {
-            "timestamp": _now_iso(),
-            "cloudtrail": check_cloudtrail(),
-            "guardduty": check_guardduty(),
-            "securityhub": check_security_hub(),
-            "config": check_config(),
-            "waf": check_waf(),
-            "encryption": check_encryption(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "cloudtrail": ct_status,
+            "guardduty": gd_status,
+            "securityhub": sh_status,
+            "config": cfg_status,
+            "waf": waf_status_obj,
+            "encryption": {
+                "ok": enc_ok,
+                "bucket": bucket_status,
+                "profiles_table": profiles_enc,
+            },
         }
-        return _resp(200, {"ok": True, "posture": posture})
 
-    return _resp(404, {"message": "Not found"})
+        return resp(200, {"ok": True, "posture": posture})
+
+    except Exception as e:
+        log.exception("Posture handler failed with unexpected error")
+        return resp(
+            500,
+            {
+                "message": "Internal Server Error",
+                "error": str(e),
+                "error_type": type(e).__name__,
+            },
+        )
