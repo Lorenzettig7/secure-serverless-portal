@@ -3,8 +3,16 @@
 
 variable "github_owner" { type = string }
 variable "github_repo" { type = string }
-variable "findings_table_name" { type = string }
-variable "findings_table_arn" { type = string }
+variable "findings_table_name" {
+  type    = string
+  default = ""
+}
+
+variable "findings_table_arn" {
+  type    = string
+  default = ""
+}
+
 
 variable "domain_name" {
   description = "Public portal hostname used by Cognito redirects (e.g., portal.secureschoolcloud.org)"
