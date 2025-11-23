@@ -211,7 +211,7 @@
 
     figure {
       margin: 0;
-      background: #0b1120;
+      background: #f9fafa;
       border-radius: 12px;
       padding: 8px;
       border: 1px solid rgba(148,163,184,0.4);
@@ -224,12 +224,12 @@
       width: 100%;
       border-radius: 8px;
       display: block;
-      background: #020617;
+      background: #fdfefe;
     }
 
     figure figcaption {
       font-size: 0.8rem;
-      color: #e5e7eb;
+      color: #0a0a0a;
     }
 
     .hint {
@@ -282,81 +282,100 @@
       <section class="layout">
         <article class="card diagram">
           <h2>CI/CD Architecture</h2>
-          <p>
-            Developers push changes to GitHub. GitHub Actions runs Terraform plans on pull
-            requests and full Terraform applies on the <code>main</code> branch, then
-            syncs the web app to S3 and invalidates CloudFront. Planned additions include
-            tfsec/checkov scans and deployment summaries stored in S3.
-          </p>
-          <!-- Replace this with your exported diagram -->
-          <img src="/img/cicd-pipeline-architecture.png"
-               alt="Architecture diagram for the SchoolCloud CI/CD pipeline" />
-          <p class="hint">
-            Save your diagram as <code>apps/web/img/cicd-pipeline-architecture.png</code> so this image loads.
-          </p>
+<p>
+  Developers push changes to GitHub. GitHub Actions runs a Terraform Plan
+  workflow and a Security Scan workflow on pull requests, then a Deploy
+  workflow on the <code>main</code> branch. The Deploy job runs Terraform
+  apply, syncs the web app in <code>apps/web</code> to the S3 web bucket,
+  and invalidates CloudFront so the latest version of the SchoolCloud
+  portal is served to users.
+</p>
+<img src="/img/cicd-pipeline-architecture.png"
+     alt="Architecture diagram for the SchoolCloud CI/CD pipeline" />
+
+<p class="hint">
+  CI/CD pipeline diagram exported from Figma
+  (<code>apps/web/img/cicd-pipeline-architecture.png</code>).
+</p>
+
         </article>
 
         <aside class="card">
-          <h2>Pipeline flow (today + planned)</h2>
-          <ol class="steps">
-            <li><strong>Developer</strong> opens a pull request to the repo.</li>
-            <li>
-              <strong>Terraform Plan workflow</strong> runs on PR:
-              checkout, setup Terraform, configure AWS (OIDC),
-              <code>terraform fmt</code>, <code>validate</code>, <code>plan</code>.
-            </li>
-            <li>
-              (Planned) <strong>Security scanners</strong> run:
-              <code>tfsec</code>, <code>checkov</code>, maybe <code>npm test</code> / <code>npm audit</code>.
-            </li>
-            <li>
-              After review, the PR is merged to <strong>main</strong>.
-            </li>
-            <li>
-              <strong>Deploy workflow</strong> runs on <code>main</code>:
-              Terraform init/plan/apply, then syncs <code>apps/web</code> to the S3 web bucket
-              and triggers a CloudFront invalidation.
-            </li>
-            <li>
-              (Planned) A small step writes a <code>deployment-summary.json</code> to an S3 bucket
-              describing the build, commit, and which checks passed.
-            </li>
-            <li>
-              (Planned) A <strong>Deployment Summary Lambda</strong> reads the last few JSON files
-              and exposes them to this portal as “Last 5 deployments” with green/red status.
-            </li>
-          </ol>
-        </aside>
+  <h2>Pipeline flow</h2>
+  <ol class="steps">
+    <li>
+      <strong>Developer</strong> opens a feature branch and creates a pull
+      request to the <code>secure-serverless-portal</code> repository.
+    </li>
+    <li>
+      The <strong>Terraform Plan workflow</strong> runs on the pull request:
+      it checks out the code, sets up Terraform, configures AWS via OIDC,
+      and runs <code>terraform fmt</code>, <code>validate</code>, and
+      <code>plan</code> on the <code>infra/</code> configuration.
+    </li>
+    <li>
+      The <strong>Security Scan workflow</strong> also runs on the pull
+      request: <code>tfsec</code> and <code>checkov</code> scan the
+      Terraform code for misconfigurations and policy violations, and
+      surface findings in the GitHub Actions logs.
+    </li>
+    <li>
+      After review, the pull request is approved and merged into
+      <strong>main</strong>.
+    </li>
+    <li>
+      The <strong>Deploy workflow</strong> runs on the
+      <code>main</code> branch: Terraform init/plan/apply updates the AWS
+      environment, then the job syncs <code>apps/web</code> to the S3 web
+      bucket and triggers a CloudFront invalidation so the new portal
+      version is live.
+    </li>
+  </ol>
+</aside>
       </section>
 
       <section class="card" style="margin-top: 20px;">
-        <h2>GitHub Actions screenshots</h2>
-        <p>
-          These screenshots show the real workflows backing this diagram. Replace the
-          image files below with captures from your own GitHub Actions runs.
-        </p>
-        <div class="screenshot-grid">
-          <figure>
-            <img src="/img/gha-terraform-plan.png"
-                 alt="Screenshot of the Terraform Plan workflow run in GitHub Actions" />
-            <figcaption>Terraform Plan workflow on pull requests.</figcaption>
-          </figure>
-          <figure>
-            <img src="/img/gha-deploy-main.png"
-                 alt="Screenshot of the deploy workflow run on main branch" />
-            <figcaption>Deploy workflow (Terraform apply + S3/CloudFront sync).</figcaption>
-          </figure>
-          <figure>
-            <img src="/img/gha-security-scans.png"
-                 alt="Screenshot of security scan step in the pipeline" />
-            <figcaption>Security checks (tfsec / checkov / tests) – once wired in.</figcaption>
-          </figure>
-        </div>
-        <p class="hint">
-          Place your screenshots under <code>apps/web/img/</code> and update the
-          filenames above if needed.
-        </p>
-      </section>
+  <h2>GitHub Actions workflows</h2>
+  <p>
+    These screenshots show the CI/CD workflows that deploy this project:
+    Terraform Plan and Security Scan workflows on pull requests, and a
+    Deploy workflow on the <code>main</code> branch.
+  </p>
+
+  <div class="screenshot-grid">
+    <figure>
+      <img src="/img/gha-plan.png"
+           alt="Screenshot of the Terraform Plan workflow run in GitHub Actions" />
+      <figcaption>
+        <strong>Terraform Plan workflow</strong> on pull requests –
+        runs <code>terraform fmt</code>, <code>validate</code>, and
+        <code>plan</code> using an AWS IAM role assumed via OIDC.
+      </figcaption>
+    </figure>
+
+    <figure>
+      <img src="/img/gha-deploy.png"
+           alt="Screenshot of the deploy workflow run on main branch" />
+      <figcaption>
+        <strong>Deploy workflow</strong> on <code>main</code> – runs
+        Terraform apply, syncs <code>apps/web</code> to the S3 web bucket,
+        and invalidates CloudFront to push the latest portal to users.
+      </figcaption>
+    </figure>
+
+    <figure>
+      <img src="/img/gha-security-scans.png"
+           alt="Screenshot of security scan workflow in GitHub Actions" />
+      <figcaption>
+        <strong>Security Scan workflow</strong> – runs
+        <code>tfsec</code> and <code>checkov</code> against the Terraform
+        code on every pull request, highlighting security and compliance
+        issues directly in CI.
+      </figcaption>
+    </figure>
+  </div>
+</section>
+
     </div>
   </main>
 
