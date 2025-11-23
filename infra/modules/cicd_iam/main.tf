@@ -247,7 +247,9 @@ resource "aws_iam_policy" "deploy_boundary" {
     "s3:GetEncryptionConfiguration",
     "s3:GetBucketPolicy",
     "s3:GetBucketLocation",
-    "s3:ListBucket"
+    "s3:ListBucket",
+    "s3:GetBucketAcl" 
+
   ]
   Resource = [
     "arn:aws:s3:::ssp-*",
