@@ -120,9 +120,12 @@ resource "aws_iam_policy" "deploy_boundary" {
           "cloudfront:ListTagsForResource",
 
           # Lambda (including code signing config)
+          "lambda:GetEventSourceMapping",
+          "lambda:ListEventSourceMappings",
           "lambda:GetFunction",
           "lambda:GetFunctionConfiguration",
           "lambda:ListVersionsByFunction",
+          "lambda:ListFunctions",
           "lambda:GetFunctionCodeSigningConfig",
           "lambda:GetPolicy",
 
@@ -233,6 +236,22 @@ resource "aws_iam_policy" "deploy_boundary" {
         ]
         Resource = "arn:aws:s3:::ssp-logs-713881788173"
       },
+{
+  Sid    = "AllowS3ReadOnProjectBuckets"
+  Effect = "Allow"
+  Action = [
+    "s3:GetBucketPublicAccessBlock",
+    "s3:GetBucketVersioning",
+    "s3:GetEncryptionConfiguration",
+    "s3:GetBucketPolicy",
+    "s3:GetBucketLocation",
+    "s3:ListBucket"
+  ]
+  Resource = [
+    "arn:aws:s3:::ssp-*",
+    "arn:aws:s3:::ssp-*/*"
+  ]
+},
 
       {
         Sid    = "TfstateS3PostureReads"
