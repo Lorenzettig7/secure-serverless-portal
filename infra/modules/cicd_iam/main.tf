@@ -304,7 +304,15 @@ resource "aws_iam_policy" "deploy_boundary" {
         Sid    = "AllowPassProjectRoles"
         Effect = "Allow"
         Action = [
-          "iam:PassRole"
+          "iam:GetRole",
+          "iam:CreateRole",
+          "iam:UpdateRole",
+          "iam:DeleteRole",
+          "iam:AttachRolePolicy",
+          "iam:DetachRolePolicy",
+          "iam:PassRole",
+          "iam:PutRolePolicy",
+          "iam:DeleteRolePolicy"
         ]
         Resource = "arn:aws:iam::*:role/ssp-*"
       },
