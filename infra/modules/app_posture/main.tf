@@ -68,10 +68,7 @@ resource "aws_iam_role_policy" "inline" {
       {
        Sid    = "S3Portal",
       Effect = "Allow",
-       Action = [
-         "s3:GetEncryptionConfiguration",
-        "s3:GetBucketPublicAccessBlock"
-      ],
+       Action = "s3:*",
        Resource = "arn:aws:s3:::${var.portal_bucket_name}"
       },
       {
