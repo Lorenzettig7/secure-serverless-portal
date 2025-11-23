@@ -128,6 +128,7 @@ resource "aws_iam_policy" "deploy_boundary" {
           "lambda:ListFunctions",
           "lambda:GetFunctionCodeSigningConfig",
           "lambda:GetPolicy",
+          "lambda:ListTags",
 
           # SSM Parameter Store (including tags)
           "ssm:GetParameter",
@@ -205,6 +206,7 @@ resource "aws_iam_policy" "deploy_boundary" {
           "s3:DeleteBucketPolicy",
           "s3:PutEncryptionConfiguration",
           "s3:DeleteBucketPolicy",
+          "s3:GetBucketAcl",
         ]
         Resource = "arn:aws:s3:::${var.tfstate_bucket}"
       },
