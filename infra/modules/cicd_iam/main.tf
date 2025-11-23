@@ -242,14 +242,8 @@ resource "aws_iam_policy" "deploy_boundary" {
   Sid    = "AllowS3ReadOnProjectBuckets"
   Effect = "Allow"
   Action = [
-    "s3:GetBucketPublicAccessBlock",
-    "s3:GetBucketVersioning",
-    "s3:GetEncryptionConfiguration",
-    "s3:GetBucketPolicy",
-    "s3:GetBucketLocation",
-    "s3:ListBucket",
-    "s3:GetBucketAcl" 
-
+    "s3:Get*",
+    "s3:List*"
   ]
   Resource = [
     "arn:aws:s3:::ssp-*",
