@@ -66,10 +66,13 @@ resource "aws_iam_role_policy" "inline" {
         Resource = var.waf_web_acl_arn
       },
       {
-        Sid    = "S3Portal",
-        Effect = "Allow",
-        Action = ["s3:GetBucketEncryption", "s3:GetBucketPublicAccessBlock"],
-        Resource = "arn:aws:s3:::${var.portal_bucket_name}"
+       Sid    = "S3Portal",
+      Effect = "Allow",
+       Action = [
+         "s3:GetEncryptionConfiguration",
+        "s3:GetBucketPublicAccessBlock"
+      ],
+       Resource = "arn:aws:s3:::${var.portal_bucket_name}"
       },
       {
         Sid    = "DDBProfiles",
@@ -89,6 +92,7 @@ resource "aws_lambda_function" "posture" {
   role          = aws_iam_role.lambda.arn
   handler       = "posture_handler.handler"
   runtime       = "python3.12"
+  timeout       = 10
 
   filename         = data.archive_file.posture_zip.output_path
   source_code_hash = data.archive_file.posture_zip.output_base64sha256
@@ -103,12 +107,6 @@ resource "aws_lambda_function" "posture" {
       ADMIN_EMAIL         = "lorenzettigi7@gmail.com"
     }
   }
-
-  vpc_config {
-    subnet_ids         = var.private_subnet_ids
-    security_group_ids = [var.lambda_security_group_id]
-  }
-
   tags = var.common_tags
 }
 

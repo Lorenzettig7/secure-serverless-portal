@@ -1,31 +1,34 @@
 import json
 import os
-import boto3
 import logging
 from datetime import datetime, timedelta, timezone
+
+import boto3
+from botocore.config import Config
 from botocore.exceptions import ClientError
 
 log = logging.getLogger()
 log.setLevel(logging.INFO)
 
-# DynamoDB for profiles
-dynamodb_res = boto3.resource("dynamodb")
-PROFILES_TABLE_NAME = os.environ["PROFILES_TABLE_NAME"]
-PROFILES_TABLE = dynamodb_res.Table(PROFILES_TABLE_NAME)
+# Short timeouts so calls to public AWS APIs fail fast instead of hanging
+AWS_CFG = Config(connect_timeout=0.5, read_timeout=1, retries={"max_attempts": 1})
 
-# Other AWS clients
-ct_client = boto3.client("cloudtrail")
-gd_client = boto3.client("guardduty")
-sh_client = boto3.client("securityhub")
-cfg_client = boto3.client("config")
-waf_client = boto3.client("wafv2")
-s3_client = boto3.client("s3")
-ddb_client = boto3.client("dynamodb")
+session = boto3.Session()
 
-WAF_WEBACL_ARN = os.environ.get("WAF_WEBACL_ARN", "")
+ct_client = session.client("cloudtrail", config=AWS_CFG)
+gd_client = session.client("guardduty", config=AWS_CFG)
+sh_client = session.client("securityhub", config=AWS_CFG)
+cfg_client = session.client("config", config=AWS_CFG)
+waf_client = session.client("wafv2", config=AWS_CFG)
+s3_client = session.client("s3", config=AWS_CFG)
+ddb_client = session.client("dynamodb", config=AWS_CFG)
+
+dynamodb = boto3.resource("dynamodb")
+PROFILES_TABLE = dynamodb.Table(os.environ["PROFILES_TABLE_NAME"])
+
+PORTAL_BUCKET_NAME = os.environ.get("PORTAL_BUCKET_NAME")
+WAF_WEBACL_ARN = os.environ.get("WAF_WEBACL_ARN")
 WAF_SAMPLE_RULE = os.environ.get("WAF_SAMPLE_RULE", "Default_Action")
-PORTAL_BUCKET_NAME = os.environ.get("PORTAL_BUCKET_NAME", "")
-ALLOWED_ORIGIN = os.environ.get("ALLOWED_ORIGIN", "*")
 
 
 def resp(status, body):
@@ -33,7 +36,7 @@ def resp(status, body):
         "statusCode": status,
         "headers": {
             "Content-Type": "application/json",
-            "Access-Control-Allow-Origin": ALLOWED_ORIGIN,
+            "Access-Control-Allow-Origin": "*",
             "Access-Control-Allow-Headers": "Authorization,Content-Type",
         },
         "body": json.dumps(body),
@@ -44,149 +47,110 @@ def get_claims(event):
     rc = event.get("requestContext", {})
     auth = rc.get("authorizer", {})
 
-    # HTTP API + JWT
+    # HTTP API + JWT authorizer
     if "jwt" in auth:
         return auth["jwt"].get("claims", {}) or {}
 
-    # REST API fallback
+    # Fallback for REST API style
     return auth.get("claims", {}) or {}
 
 
-# -------- posture helpers -------- #
+# -----------------------------
+# Posture helpers
+# -----------------------------
 
 def cloudtrail_status():
+    log.info("Checking CloudTrail posture")
     try:
-        trails = ct_client.describe_trails().get("trailList", [])
+        trails = ct_client.describe_trails().get("trailList", []) or []
         trail_count = len(trails)
         multi_region = any(t.get("IsMultiRegionTrail") for t in trails)
-        ok = trail_count > 0 and multi_region
         return {
-            "ok": ok,
+            "ok": trail_count > 0,
             "trail_count": trail_count,
             "multi_region": multi_region,
         }
     except Exception as e:
         log.exception("CloudTrail check failed")
-        return {
-            "ok": False,
-            "trail_count": 0,
-            "multi_region": False,
-            "error": str(e),
-        }
+        return {"ok": False, "error": str(e)}
 
 
 def guardduty_status():
+    log.info("Checking GuardDuty posture")
     try:
-        detectors = gd_client.list_detectors().get("DetectorIds", [])
-        if not detectors:
+        det_ids = gd_client.list_detectors().get("DetectorIds", []) or []
+        if not det_ids:
             return {"enabled": False}
-        det_id = detectors[0]
-        det = gd_client.get_detector(DetectorId=det_id)
-        enabled = det.get("Status") == "ENABLED"
-        return {"enabled": enabled}
+
+        det = gd_client.get_detector(DetectorId=det_ids[0])
+        status = det.get("Status", "UNKNOWN")
+        return {
+            "enabled": status.upper() == "ENABLED",
+            "status": status,
+        }
     except Exception as e:
         log.exception("GuardDuty check failed")
         return {"enabled": False, "error": str(e)}
 
 
 def securityhub_status():
-    enabled = False
-    severity_counts = {"CRITICAL": 0, "HIGH": 0, "MEDIUM": 0, "LOW": 0}
-
-    # Is Security Hub enabled?
+    log.info("Checking Security Hub posture")
     try:
-        sh_client.describe_hub()
-        enabled = True
-    except ClientError as e:
-        code = e.response["Error"]["Code"]
-        if code in ("InvalidAccessException", "AccessDeniedException"):
-            # Not enabled → just show disabled
-            return {"enabled": False, "severity_counts": severity_counts}
-        log.exception("Security Hub describe failed")
-        return {
-            "enabled": False,
-            "severity_counts": severity_counts,
-            "error": str(e),
-        }
-    except Exception as e:
-        log.exception("Security Hub describe failed")
-        return {
-            "enabled": False,
-            "severity_counts": severity_counts,
-            "error": str(e),
-        }
+        hub = sh_client.describe_hub()
+        enabled = bool(hub)
 
-    # If enabled, sample some ACTIVE findings
-    try:
-        paginator = sh_client.get_paginator("get_findings")
-        for page in paginator.paginate(
+        findings = sh_client.get_findings(
+            MaxResults=50,
             Filters={
                 "RecordState": [{"Value": "ACTIVE", "Comparison": "EQUALS"}],
             },
-            PaginationConfig={"PageSize": 25},
-        ):
-            for f in page.get("Findings", []):
-                label = (f.get("Severity", {}).get("Label") or "").upper()
-                if label in severity_counts:
-                    severity_counts[label] += 1
-    except Exception as e:
-        log.exception("Security Hub findings failed")
-        return {
-            "enabled": enabled,
-            "severity_counts": severity_counts,
-            "error": str(e),
-        }
+        )
+        counts = {}
+        for f in findings.get("Findings", []):
+            sev = (f.get("Severity", {}) or {}).get("Label", "UNKNOWN").upper()
+            counts[sev] = counts.get(sev, 0) + 1
 
-    return {"enabled": enabled, "severity_counts": severity_counts}
+        return {"enabled": enabled, "severity_counts": counts}
+    except Exception as e:
+        log.exception("Security Hub check failed")
+        return {"enabled": False, "error": str(e)}
 
 
 def config_status():
+    log.info("Checking AWS Config posture")
     try:
-        summary = cfg_client.get_compliance_summary_by_config_rule().get(
-            "ComplianceSummary", {}
-        )
-        compliant = summary.get("CompliantResourceCount", {}).get("CappedCount", 0)
-        non_compliant = summary.get("NonCompliantResourceCount", {}).get(
-            "CappedCount", 0
-        )
+        summary = cfg_client.get_compliance_summary_by_config_rule()
+        comp = summary.get("ComplianceSummary", {}) or {}
         return {
             "ok": True,
-            "compliant": compliant,
-            "non_compliant": non_compliant,
+            "compliant": comp.get("CompliantResourceCount", {}).get("CappedCount", 0),
+            "non_compliant": comp.get("NonCompliantResourceCount", {}).get("CappedCount", 0),
         }
     except Exception as e:
-        log.exception("Config summary failed")
-        return {
-            "ok": False,
-            "compliant": 0,
-            "non_compliant": 0,
-            "error": str(e),
-        }
+        log.exception("Config check failed")
+        return {"ok": False, "error": str(e)}
 
 
 def waf_status():
-    if not WAF_WEBACL_ARN:
-        return {
-            "ok": False,
-            "allowed_24h_sample": 0,
-            "blocked_24h_sample": 0,
-            "error": "WAF_WEBACL_ARN not set",
-        }
-
-    end = datetime.now(timezone.utc)
-    start = end - timedelta(hours=24)
+    log.info("Checking WAF posture")
+    if not (WAF_WEBACL_ARN and WAF_SAMPLE_RULE):
+        # Frontend will just show "0 / gray"
+        return {"ok": False, "error": "WAF env vars not set"}
 
     try:
-        resp = waf_client.get_sampled_requests(
+        end = datetime.now(timezone.utc)
+        start = end - timedelta(hours=24)
+        resp_waf = waf_client.get_sampled_requests(
             WebAclArn=WAF_WEBACL_ARN,
             RuleMetricName=WAF_SAMPLE_RULE,
-            Scope="CLOUDFRONT",  # your ACL ARN is 'global'
+            Scope="CLOUDFRONT",
             TimeWindow={"StartTime": start, "EndTime": end},
             MaxItems=100,
         )
-        sampled = resp.get("SampledRequests", [])
+        sampled = resp_waf.get("SampledRequests", []) or []
         allowed = sum(1 for r in sampled if r.get("Action") == "ALLOW")
         blocked = sum(1 for r in sampled if r.get("Action") == "BLOCK")
+
         return {
             "ok": True,
             "allowed_24h_sample": allowed,
@@ -194,58 +158,51 @@ def waf_status():
         }
     except Exception as e:
         log.exception("WAF check failed")
-        return {
-            "ok": False,
-            "allowed_24h_sample": 0,
-            "blocked_24h_sample": 0,
-            "error": str(e),
-        }
+        return {"ok": False, "error": str(e)}
 
 
-def portal_bucket_status():
-    sse = False
-    public_blocked = False
-    enc_error = pab_error = None
-
+def portal_bucket_encryption_status():
+    """Check S3 encryption + public access on the portal bucket."""
     if not PORTAL_BUCKET_NAME:
         return {
             "sse": False,
             "public_blocked": False,
-            "encryption_error": "PORTAL_BUCKET_NAME not set",
+            "encryption_error": "PORTAL_BUCKET_NAME env var not set",
             "public_access_error": None,
         }
 
-    # SSE
+    sse = False
+    public_blocked = False
+    enc_error = None
+    pab_error = None
+
+    # --- SSE on bucket ---
     try:
         enc = s3_client.get_bucket_encryption(Bucket=PORTAL_BUCKET_NAME)
-        rules = enc.get("ServerSideEncryptionConfiguration", {}).get("Rules", [])
+        cfg = enc.get("ServerSideEncryptionConfiguration", {}) or {}
+        rules = cfg.get("Rules", []) or []
         sse = len(rules) > 0
     except ClientError as e:
-        if (
-            e.response["Error"]["Code"]
-            != "ServerSideEncryptionConfigurationNotFoundError"
-        ):
+        # No config at all = just "off", not necessarily an error
+        if e.response.get("Error", {}).get("Code") != "ServerSideEncryptionConfigurationNotFoundError":
             log.exception("Bucket encryption check failed")
             enc_error = str(e)
     except Exception as e:
         log.exception("Bucket encryption check failed")
         enc_error = str(e)
 
-    # Public access block
+    # --- Public access block on bucket ---
     try:
-        pab = s3_client.get_bucket_public_access_block(Bucket=PORTAL_BUCKET_NAME)
-        cfg_pab = pab.get("PublicAccessBlockConfiguration", {})
-        public_blocked = all(
-            cfg_pab.get(k, False)
-            for k in [
-                "BlockPublicAcls",
-                "IgnorePublicAcls",
-                "BlockPublicPolicy",
-                "RestrictPublicBuckets",
-            ]
-        )
+        pab = s3_client.get_public_access_block(Bucket=PORTAL_BUCKET_NAME)
+        cfg = pab.get("PublicAccessBlockConfiguration", {}) or {}
+        public_blocked = all(bool(cfg.get(k)) for k in [
+            "BlockPublicAcls",
+            "IgnorePublicAcls",
+            "BlockPublicPolicy",
+            "RestrictPublicBuckets",
+        ])
     except ClientError as e:
-        if e.response["Error"]["Code"] != "NoSuchPublicAccessBlockConfiguration":
+        if e.response.get("Error", {}).get("Code") != "NoSuchPublicAccessBlockConfiguration":
             log.exception("Bucket public access block check failed")
             pab_error = str(e)
     except Exception as e:
@@ -261,72 +218,75 @@ def portal_bucket_status():
 
 
 def profiles_table_encryption_status():
+    log.info("Checking DynamoDB profiles table encryption")
     cmk_encrypted = False
     error = None
+
     try:
-        desc = ddb_client.describe_table(TableName=PROFILES_TABLE_NAME)
-        sse = desc.get("Table", {}).get("SSEDescription", {})
+        desc = ddb_client.describe_table(
+            TableName=os.environ["PROFILES_TABLE_NAME"]
+        )
+        sse = (desc.get("Table", {}) or {}).get("SSEDescription", {}) or {}
         key_arn = sse.get("KMSMasterKeyArn")
-        if key_arn:
-            cmk_encrypted = True
+        cmk_encrypted = bool(key_arn)
     except Exception as e:
         log.exception("Profiles table encryption check failed")
         error = str(e)
 
-    return {"cmk_encrypted": cmk_encrypted, "error": error}
+    return {
+        "cmk_encrypted": cmk_encrypted,
+        "error": error,
+    }
 
 
-# -------- Lambda handler -------- #
+# -----------------------------
+# Main Lambda handler
+# -----------------------------
 
 def handler(event, context):
     log.info("EVENT: %s", json.dumps(event))
 
+    # 1. Extract sub from JWT claims
+    claims = get_claims(event)
+    sub = claims.get("sub")
+    email = claims.get("email")
+
+    if not sub:
+        log.warning("No sub in claims: %s", claims)
+        return resp(401, {"message": "Unauthorized (missing sub claim)"})
+
+    # 2. Load profile from DynamoDB
     try:
-        # 1. Auth & claims
-        claims = get_claims(event)
-        sub = claims.get("sub")
-        email = claims.get("email")
+        ddb_resp = PROFILES_TABLE.get_item(Key={"id": sub})
+        profile = ddb_resp.get("Item") or {}
+        log.info("Loaded profile for %s: %s", sub, profile)
+    except Exception as e:
+        log.exception("Error reading profile from DynamoDB")
+        return resp(
+            500,
+            {
+                "message": "Failed to load profile",
+                "error": str(e),
+                "error_type": type(e).__name__,
+            },
+        )
 
-        if not sub:
-            log.warning("No sub in claims: %s", claims)
-            return resp(401, {"message": "Unauthorized (missing sub claim)"})
+    role = profile.get("role", "student")
+    log.info("Posture request from %s (%s) role=%s", email, sub, role)
 
-        # 2. Load profile
-        try:
-            ddb_resp = PROFILES_TABLE.get_item(Key={"id": sub})
-            profile = ddb_resp.get("Item") or {}
-            log.info("Loaded profile for %s: %s", sub, profile)
-        except Exception as e:
-            log.exception("Error reading profile from DynamoDB")
-            return resp(
-                500,
-                {
-                    "message": "Failed to load profile",
-                    "error": str(e),
-                    "error_type": type(e).__name__,
-                },
-            )
+    # 3. Enforce admin-only access
+    if role != "admin":
+        return resp(403, {"message": "Admin access required"})
 
-        role = profile.get("role", "student")
-        log.info("Posture request from %s (%s) role=%s", email, sub, role)
-
-        if role != "admin":
-            return resp(403, {"message": "Admin access required"})
-
-        # 3. Build posture
+    # 4. Collect posture data (each helper handles its own errors)
+    try:
         ct_status = cloudtrail_status()
         gd_status = guardduty_status()
         sh_status = securityhub_status()
         cfg_status = config_status()
         waf_status_obj = waf_status()
-        bucket_status = portal_bucket_status()
-        profiles_enc = profiles_table_encryption_status()
-
-        enc_ok = (
-            bucket_status.get("sse", False)
-            and bucket_status.get("public_blocked", False)
-            and profiles_enc.get("cmk_encrypted", False)
-        )
+        bucket_status = portal_bucket_encryption_status()
+        profiles_status = profiles_table_encryption_status()
 
         posture = {
             "timestamp": datetime.now(timezone.utc).isoformat(),
@@ -336,12 +296,17 @@ def handler(event, context):
             "config": cfg_status,
             "waf": waf_status_obj,
             "encryption": {
-                "ok": enc_ok,
+                "ok": bool(
+                    bucket_status.get("sse")
+                    and bucket_status.get("public_blocked")
+                    and profiles_status.get("cmk_encrypted")
+                ),
                 "bucket": bucket_status,
-                "profiles_table": profiles_enc,
+                "profiles_table": profiles_status,
             },
         }
 
+        log.info("Posture snapshot built: %s", json.dumps(posture))
         return resp(200, {"ok": True, "posture": posture})
 
     except Exception as e:

@@ -163,11 +163,10 @@ resource "aws_lambda_function" "findings" {
 
   environment {
     variables = {
-    ALLOWED_ORIGIN      = var.allowed_origin
-    PORTAL_BUCKET_NAME  = var.portal_bucket_name
-    PROFILES_TABLE_NAME = var.profiles_table_name
-    WAF_WEBACL_ARN      = var.waf_web_acl_arn
-    WAF_SAMPLE_RULE     = "Default_Action"
+      ALLOWED_ORIGIN      = var.allowed_origin        # CORS for /findings
+      FINDINGS_TABLE_NAME = var.findings_table_name   # 🔥 this is the key bit
+      # (you can drop the PORTAL_BUCKET_NAME / WAF vars here unless you
+      #  really need them in findings_handler)
     }
   }
 
