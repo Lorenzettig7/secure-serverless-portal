@@ -1,0 +1,33 @@
+name: Security Scan
+
+on:
+  pull_request:
+    branches: [ main ]
+    paths:
+      - "infra/**"
+      - "apps/web/**"
+      - ".github/workflows/**"
+  workflow_dispatch:
+
+jobs:
+  security:
+    name: Infra & app security checks
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Run tfsec (Terraform security scan)
+        uses: aquasecurity/tfsec-action@v1.0.3
+        with:
+          working_directory: infra
+
+      - name: Run Checkov (Terraform policy-as-code)
+        uses: bridgecrewio/checkov-action@v12
+        with:
+          directory: infra
+          framework: terraform
+
+
+  #updated
