@@ -229,13 +229,14 @@
       font-size: 0.93rem;
     }
 
+    /* Architecture card wrapper – lighter/thinner blue frame */
     .diagram-wrapper {
       margin-top: 8px;
       border-radius: 12px;
       overflow: hidden;
-      border: 1px solid #0b54e6;
-      background: #6c8bcf;
-      padding: 8px;
+      border: 1px solid #bfdbfe;   /* light blue */
+      background: #f9fafb;
+      padding: 6px;
     }
 
     .diagram-wrapper img {
@@ -261,14 +262,14 @@
           <div style="font-size:0.8rem;color:#6b7280;">A secure serverless portal for schools</div>
         </div>
       </div>
-     <nav>
-  <a href="/profile.html">Profile</a>
-  <a href="/activity.html">Activity &amp; Logs</a>
-  <a href="/risk-lab.html">Security Lab</a>
-  <a href="/security-overview.html">Security Overview</a>
-  <a href="/cicd-pipeline.html">CI/CD Pipeline</a>
-  <button id="logout" type="button">Logout</button>
-</nav>
+      <nav>
+        <a href="/profile.html">Profile</a>
+        <a href="/activity.html">Activity &amp; Logs</a>
+        <a href="/risk-lab.html">Security Lab</a>
+        <a href="/security-overview.html">Security Overview</a>
+        <a href="/cicd-pipeline.html">CI/CD Pipeline</a>
+        <button id="logout" type="button">Logout</button>
+      </nav>
     </header>
 
     <!-- hero -->
@@ -276,18 +277,20 @@
       <div>
         <div class="pill">
           Secure by design
-          <span style="opacity:.7;">• AWS serverless</span>
+          <span style="opacity:.7;">• AWS serverless &amp; DevSecOps</span>
         </div>
         <h1>Secure access for students, teachers, and admins.</h1>
         <p class="hero-subtitle">
-          The SchoolCloud Portal uses AWS Cognito, API Gateway, Lambda, and WAF to give schools a
-          simple, auditable way for users to manage their profiles and view their own activity.
+          The SchoolCloud Portal uses Amazon Cognito, CloudFront + WAF, API Gateway, Lambda,
+          DynamoDB, and Macie—deployed with Terraform and GitHub Actions—to give schools a
+          simple, auditable way for users to manage their profiles and see how their accounts
+          are being used.
         </p>
 
         <div class="roles">
           <span class="role-chip">Students – update your profile and see your activity.</span>
           <span class="role-chip">Teachers – verify access and keep accounts secure.</span>
-          <span class="role-chip">Admins – monitor security events and alerts.</span>
+          <span class="role-chip">Admins – monitor security events, alerts, and findings.</span>
         </div>
 
         <div class="cta-group">
@@ -296,7 +299,8 @@
         </div>
 
         <p class="hero-meta">
-          Sign-in is powered by Amazon Cognito. Only authenticated users can access their profile and activity.
+          Sign-in is powered by Amazon Cognito. Only authenticated users can reach their
+          Profile, Activity, Security Lab, and CI/CD views.
         </p>
       </div>
 
@@ -304,16 +308,16 @@
         <h2>About the project</h2>
         <p>
           This portal was built as a secure serverless reference for K–12 and higher education.
-          It focuses on strong identity, logging, and security visibility.
+          It focuses on strong identity, deep logging, and modern DevSecOps practices.
         </p>
         <p>
           <strong>Highlights:</strong>
         </p>
         <ul>
-          <li>Serverless architecture (CloudFront, S3, API Gateway, Lambda)</li>
-          <li>Per-user profiles with role (student / teacher / admin)</li>
-          <li>Activity page that surfaces CloudTrail &amp; audit events</li>
-          <li>EventBridge + SNS alerts for sensitive actions</li>
+          <li>Serverless edge-to-data architecture (CloudFront, WAF, S3, API Gateway, Lambda, DynamoDB)</li>
+          <li>Per-user profiles with roles (student / teacher / admin) and audit-friendly activity views</li>
+          <li>Security pages powered by CloudTrail, AWS Config, GuardDuty, Macie, and Security Hub</li>
+          <li>EventBridge + SNS alerts, all managed as code with Terraform and GitHub Actions CI/CD</li>
         </ul>
       </aside>
     </section>
@@ -322,13 +326,15 @@
     <section class="section">
       <h2>About the Builder</h2>
       <p>
-        Hi, I’m Giovanna. I’m interested in cloud security, automation, and building systems that are
-        both secure and easy to use for real people in schools. This project was designed to show how
-        to combine AWS best practices with a friendly, student-facing experience.
+        Hi, I’m Giovanna. I’m interested in cloud security, automation,and development.
+        This project shows how to combine AWS security best practices (WAF, Macie, GuardDuty, Security Hub, IAM Access Analyzer) 
+        with a friendly, student-facing experience.
       </p>
       <p>
         You can explore the portal using the sign-in button above and then visit your
-        <a href="/profile.html">Profile</a> and <a href="/activity.html">Activity &amp; Logs</a>.
+        <a href="/profile.html">Profile</a>, <a href="/activity.html">Activity &amp; Logs</a>,
+        and the <a href="/security-overview.html">Security Overview</a> and
+        <a href="/cicd-pipeline.html">CI/CD Pipeline</a> pages to see how everything is wired together.
       </p>
     </section>
 
@@ -337,15 +343,18 @@
       <h2>Architecture Overview</h2>
       <p>
         The SchoolCloud Portal runs entirely on AWS managed services. Static content is served from S3
-        through CloudFront and AWS WAF, while API Gateway and Lambda handle profile and activity logic
-        backed by DynamoDB and CloudTrail.
+        through Amazon CloudFront and AWS WAF, while Amazon API Gateway and AWS Lambda handle profile
+        and activity logic backed by DynamoDB tables. CloudTrail, AWS Config, GuardDuty, Macie, Security
+        Hub, and IAM Access Analyzer provide logging, detection, and security analytics across the
+        environment.
       </p>
       <p class="muted" style="font-size:0.85rem;color:#6b7280;">
-        Diagram exported from the project’s AWS architecture model.
+        Diagram exported from the project’s AWS architecture model, including data flows from CloudFront
+        and Cognito through API Gateway, Lambda, DynamoDB, Macie, and the security services that feed
+        alerts into EventBridge and SNS.
       </p>
 
       <div class="diagram-wrapper">
-        <!-- TODO: export your Mermaid diagram as PNG and update the src path below -->
         <img src="/img/schoolcloud-architecture.png" alt="SchoolCloud Portal architecture diagram">
       </div>
     </section>
