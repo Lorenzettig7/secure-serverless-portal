@@ -231,7 +231,8 @@ resource "aws_iam_role_policy" "macie_ingest_policy" {
       {
         Effect   = "Allow",
         Action   = [
-          "dynamodb:PutItem"
+          "dynamodb:PutItem",
+          "dynamodb:UpdateItem"
         ],
         Resource = aws_dynamodb_table.findings.arn
       },
@@ -269,10 +270,21 @@ resource "aws_iam_role_policy" "macie_ingest_ddb" {
           "dynamodb:UpdateItem"
         ]
         Resource = aws_dynamodb_table.findings.arn
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "kms:Encrypt",
+          "kms:Decrypt",
+          "kms:GenerateDataKey",
+          "kms:DescribeKey"
+        ]
+        Resource = aws_kms_key.portal.arn  # same key used by ssp-findings SSE
       }
     ]
   })
 }
+
 resource "aws_lambda_function" "macie_ingest" {
   function_name    = "${var.project_prefix}-macie-ingest"
   role             = aws_iam_role.macie_ingest_role.arn

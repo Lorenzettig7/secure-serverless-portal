@@ -50,11 +50,21 @@ nav {
 
 nav a {
   color: #4b5563;
+  text-decoration: none;      /* remove default underline */
+  white-space: nowrap;        /* keep “Security Overview” on one line */
+  padding-bottom: 2px;
 }
 
 nav a:hover {
   color: #111827;
 }
+
+/* Active tab (wrapped in <strong>…</strong>) */
+nav a strong {
+  font-weight: 600;
+  border-bottom: 2px solid #111827;
+}
+
 
 
     #logout {
@@ -170,15 +180,15 @@ nav a:hover {
   </style>
 </head>
 <body>
-  <header>
-    <div style="display:flex;align-items:center;gap:10px;">
-      <div class="logo-mark">SC</div>
-      <div>
-        <div style="font-weight:600;">SchoolCloud Portal</div>
-        <div class="muted" style="font-size:0.8rem;">Security posture overview (admins)</div>
+<header>
+      <div style="display:flex;align-items:center;gap:10px;">
+        <div class="logo-mark">SC</div>
+        <div>
+          <div style="font-weight:600;">SchoolCloud Portal</div>
+          <div class="muted" style="font-size:0.8rem;">Security posture overview (admins)</div>
+        </div>
       </div>
-    </div>
-    <nav>
+     <nav>
   <a href="/">Home</a>
   <a href="/profile.html">Profile</a>
   <a href="/activity.html">Activity &amp; Logs</a>
@@ -187,8 +197,7 @@ nav a:hover {
   <a href="/cicd-pipeline.html">CI/CD Pipeline</a>
   <button id="logout" type="button">Logout</button>
 </nav>
-
-  </header>
+    </header>
 
   <main>
     <h1>Security posture dashboard</h1>

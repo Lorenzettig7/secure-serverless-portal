@@ -125,13 +125,14 @@
 
     .layout {
       margin-top: 20px;
-      display: grid;
+      display: flex;
+      flex-direction: column;
       gap: 20px;
     }
 
     @media (min-width: 880px) {
       .layout {
-        grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+        max-width: 100%;
       }
     }
 
@@ -162,12 +163,12 @@
 
     .diagram img {
       width: 100%;
-      max-height: 320px;
+      max-height: 460px;     
       object-fit: contain;
-      border-radius: 14px;
-      background: #0f172a;
-      padding: 10px;
-      margin-top: 10px;
+      border-radius: 16px;
+      background: transparent;
+      padding: 0;
+      margin-top: 12px;
     }
 
     .steps {
@@ -279,57 +280,56 @@
         </div>
       </div>
 
-      <section class="layout">
+            <section class="layout">
+        <!-- PIPELINE CARD FIRST -->
+        <aside class="card">
+          <h2>Pipeline flow</h2>
+          <ol class="steps">
+            <li>
+              <strong>Developer</strong> opens a feature branch and creates a pull
+              request to the <code>secure-serverless-portal</code> repository.
+            </li>
+            <li>
+              The <strong>Terraform Plan workflow</strong> runs on the pull request:
+              it checks out the code, sets up Terraform, configures AWS via OIDC,
+              and runs <code>terraform fmt</code>, <code>validate</code>, and
+              <code>plan</code> on the <code>infra/</code> configuration.
+            </li>
+            <li>
+              The <strong>Security Scan workflow</strong> also runs on the pull
+              request: <code>tfsec</code> and <code>checkov</code> scan the
+              Terraform code for misconfigurations and policy violations, and
+              surface findings in the GitHub Actions logs.
+            </li>
+            <li>
+              After review, the pull request is approved and merged into
+              <strong>main</strong>.
+            </li>
+            <li>
+              The <strong>Deploy workflow</strong> runs on the
+              <code>main</code> branch: Terraform init/plan/apply updates the AWS
+              environment, then the job syncs <code>apps/web</code> to the S3 web
+              bucket and triggers a CloudFront invalidation so the new portal
+              version is live.
+            </li>
+          </ol>
+        </aside>
+
+        <!-- DIAGRAM CARD SECOND -->
         <article class="card diagram">
           <h2>CI/CD Architecture</h2>
-<p>
-  Developers push changes to GitHub. GitHub Actions runs a Terraform Plan
-  workflow and a Security Scan workflow on pull requests, then a Deploy
-  workflow on the <code>main</code> branch. The Deploy job runs Terraform
-  apply, syncs the web app in <code>apps/web</code> to the S3 web bucket,
-  and invalidates CloudFront so the latest version of the SchoolCloud
-  portal is served to users.
-</p>
-<img src="/img/cicd-pipeline-architecture.png"
-     alt="Architecture diagram for the SchoolCloud CI/CD pipeline" />
-
-<p class="hint">
-</p>
-
+          <p>
+            Developers push changes to GitHub. GitHub Actions runs a Terraform Plan
+            workflow and a Security Scan workflow on pull requests, then a Deploy
+            workflow on the <code>main</code> branch. The Deploy job runs Terraform
+            apply, syncs the web app in <code>apps/web</code> to the S3 web bucket,
+            and invalidates CloudFront so the latest version of the SchoolCloud
+            portal is served to users.
+          </p>
+          <img src="/img/cicd-pipeline-architecture.png"
+               alt="Architecture diagram for the SchoolCloud CI/CD pipeline" />
+          <p class="hint"></p>
         </article>
-
-        <aside class="card">
-  <h2>Pipeline flow</h2>
-  <ol class="steps">
-    <li>
-      <strong>Developer</strong> opens a feature branch and creates a pull
-      request to the <code>secure-serverless-portal</code> repository.
-    </li>
-    <li>
-      The <strong>Terraform Plan workflow</strong> runs on the pull request:
-      it checks out the code, sets up Terraform, configures AWS via OIDC,
-      and runs <code>terraform fmt</code>, <code>validate</code>, and
-      <code>plan</code> on the <code>infra/</code> configuration.
-    </li>
-    <li>
-      The <strong>Security Scan workflow</strong> also runs on the pull
-      request: <code>tfsec</code> and <code>checkov</code> scan the
-      Terraform code for misconfigurations and policy violations, and
-      surface findings in the GitHub Actions logs.
-    </li>
-    <li>
-      After review, the pull request is approved and merged into
-      <strong>main</strong>.
-    </li>
-    <li>
-      The <strong>Deploy workflow</strong> runs on the
-      <code>main</code> branch: Terraform init/plan/apply updates the AWS
-      environment, then the job syncs <code>apps/web</code> to the S3 web
-      bucket and triggers a CloudFront invalidation so the new portal
-      version is live.
-    </li>
-  </ol>
-</aside>
       </section>
 
       <section class="card" style="margin-top: 20px;">

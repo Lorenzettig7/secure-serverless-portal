@@ -112,10 +112,16 @@ def handler(event, context):
         bucket_name = s3_bucket_info.get("name")
 
         object_path = None
+        user_id = None
+
         s3_object_info = resources.get("s3Object") or {}
         key = s3_object_info.get("key")
         if key:
             object_path = key
+            # Expected key format: "profiles/<sub>.json"
+            filename = key.split("/")[-1]
+            if filename.endswith(".json"):
+                user_id = filename.rsplit(".", 1)[0]
 
         classification = finding.get("classificationDetails") or {}
         macie_job_id = classification.get("jobId")
@@ -131,6 +137,7 @@ def handler(event, context):
 
         item = {
             "id": str(uuid.uuid4()),
+            "user_id": user_id or "unknown",
             "created_at": created_at,
             "email": email,
             "severity": severity,
@@ -151,8 +158,10 @@ def handler(event, context):
             },
         }
 
+
         logger.info("Writing Macie finding to DynamoDB: %s", item)
         TABLE.put_item(Item=item)
         processed += 1
 
     return {"status": "ok", "processed": processed}
+#update

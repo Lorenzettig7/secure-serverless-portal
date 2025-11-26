@@ -243,6 +243,96 @@
       width: 100%;
       display: block;
     }
+    .diagram-wrapper.small {
+      max-width: 420px;         /* roughly half the card width */
+      margin: 8px auto 0;       /* center it */
+    }
+        .repo-bubbles {
+      margin-top: 12px;
+      padding: 12px 10px 8px;
+      border-radius: 16px;
+      border: 1px solid #e5e7eb;
+      background: #f9fafb;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif;
+      font-size: 0.8rem;
+    }
+
+    .repo-row {
+      --level: 0;
+      position: relative;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 6px;
+      padding-left: calc(var(--level) * 20px);
+    }
+
+    .repo-row:not(.repo-root)::before {
+      content: "";
+      position: absolute;
+      left: calc(var(--level) * 20px - 10px);
+      top: -4px;
+      bottom: 12px;
+      border-left: 1px dashed #d1d5db;
+    }
+
+    .repo-node {
+      display: inline-flex;
+      align-items: center;
+      border-radius: 999px;
+      padding: 4px 10px;
+      box-shadow: 0 1px 2px rgb(15 23 42 / 0.04);
+      background: #e5e7eb;
+      color: #c1c3c6;
+    }
+
+    .repo-icon {
+      width: 18px;
+      height: 18px;
+      border-radius: 999px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      margin-right: 6px;
+      font-size: 0.75rem;
+      background: rgba(255, 255, 255, 0.85);
+    }
+
+    .repo-label {
+      font-weight: 600;
+    }
+
+    .repo-desc {
+      margin-left: 4px;
+      color: #6b7280;
+      font-size: 0.72rem;
+    }
+
+    /* Color tags for the “bubble” look */
+    .tag-green { background: #dcfce7; color: #166534; }
+    .tag-green .repo-icon { background: #bbf7d0; color: #166534; }
+
+    .tag-blue { background: #dbeafe; color: #1d4ed8; }
+    .tag-blue .repo-icon { background: #bfdbfe; color: #1d4ed8; }
+
+    .tag-amber { background: #fef3c7; color: #92400e; }
+    .tag-amber .repo-icon { background: #fde68a; color: #92400e; }
+
+    .tag-red { background: #fee2e2; color: #b91c1c; }
+    .tag-red .repo-icon { background: #fecaca; color: #b91c1c; }
+
+    .tag-teal { background: #ccfbf1; color: #0f766e; }
+    .tag-teal .repo-icon { background: #a5f3fc; color: #0f766e; }
+
+    .tag-purple { background: #ede9fe; color: #6d28d9; }
+    .tag-purple .repo-icon { background: #ddd6fe; color: #6d28d9; }
+
+    .tag-pink { background: #fce7f3; color: #be185d; }
+    .tag-pink .repo-icon { background: #f9a8d4; color: #be185d; }
+
+    .tag-slate { background: #e5e7eb; color: #374151; }
+    .tag-slate .repo-icon { background: #f3f4f6; color: #374151; }
+
 
     footer {
       padding: 8px 16px 16px;
@@ -339,27 +429,209 @@
     </section>
 
     <!-- Architecture / diagram -->
-    <section class="section">
-      <h2>Architecture Overview</h2>
-      <p>
-        The SchoolCloud Portal runs entirely on AWS managed services. Static content is served from S3
-        through Amazon CloudFront and AWS WAF, while Amazon API Gateway and AWS Lambda handle profile
-        and activity logic backed by DynamoDB tables. CloudTrail, AWS Config, GuardDuty, Macie, Security
-        Hub, and IAM Access Analyzer provide logging, detection, and security analytics across the
-        environment.
-      </p>
-      <p class="muted" style="font-size:0.85rem;color:#6b7280;">
-        Diagram exported from the project’s AWS architecture model, including data flows from CloudFront
-        and Cognito through API Gateway, Lambda, DynamoDB, Macie, and the security services that feed
-        alerts into EventBridge and SNS.
-      </p>
+    <!-- Architecture / diagram -->
+<section class="section">
+  <h2>Architecture Overview</h2>
+  <p>
+    The SchoolCloud Portal runs entirely on AWS managed services. Static content is served from S3
+    through Amazon CloudFront and AWS WAF, while Amazon API Gateway and AWS Lambda handle profile
+    and activity logic backed by DynamoDB tables. CloudTrail, AWS Config, GuardDuty, Macie, Security
+    Hub, and IAM Access Analyzer provide logging, detection, and security analytics across the
+    environment.
+  </p>
+  <p class="muted" style="font-size:0.85rem;color:#6b7280;">
+    Diagram exported from the project’s AWS architecture model, including data flows from CloudFront
+    and Cognito through API Gateway, Lambda, DynamoDB, Macie, and the security services that feed
+    alerts into EventBridge and SNS.
+  </p>
 
-      <div class="diagram-wrapper">
-        <img src="/img/schoolcloud-architecture.png" alt="SchoolCloud Portal architecture diagram">
+  <div class="diagram-wrapper">
+    <img src="/img/schoolcloud-architecture.png"
+         alt="SchoolCloud Portal architecture diagram">
+  </div>
+</section>
+
+<section class="section">
+  <h2>Terraform infrastructure layout</h2>
+      <p style="font-size:0.88rem;color:#6b7280;margin-top:4px;">
+        Terraform is organized under <code>infra/</code> into focused modules for foundations, network, edge,
+        identity, data, application Lambdas, and CI/CD IAM. This diagram mirrors the repository layout.
+      </p>
+      <div class="repo-bubbles">
+        <!-- Root repo -->
+        <div class="repo-row repo-root" style="--level:0;">
+          <div class="repo-node tag-green">
+            <span class="repo-icon">▾</span>
+            <span class="repo-label">SchoolCloud Repository</span>
+          </div>
+        </div>
+
+        <!-- infra/ -->
+        <div class="repo-row" style="--level:1;">
+          <div class="repo-node tag-blue">
+            <span class="repo-icon">📁</span>
+            <span class="repo-label">infra/</span>
+            <span class="repo-desc">Terraform Infrastructure as Code</span>
+          </div>
+        </div>
+        <div class="repo-row" style="--level:2;">
+          <div class="repo-node tag-blue">
+            <span class="repo-icon">📄</span>
+            <span class="repo-label">main.tf</span>
+          </div>
+        </div>
+        <div class="repo-row" style="--level:2;">
+          <div class="repo-node tag-blue">
+            <span class="repo-icon">📄</span>
+            <span class="repo-label">backend.tf</span>
+          </div>
+        </div>
+        <div class="repo-row" style="--level:2;">
+          <div class="repo-node tag-blue">
+            <span class="repo-icon">📄</span>
+            <span class="repo-label">providers.tf</span>
+          </div>
+        </div>
+        <div class="repo-row" style="--level:2;">
+          <div class="repo-node tag-blue">
+            <span class="repo-icon">📄</span>
+            <span class="repo-label">variables.tf</span>
+          </div>
+        </div>
+        <div class="repo-row" style="--level:2;">
+          <div class="repo-node tag-blue">
+            <span class="repo-icon">📄</span>
+            <span class="repo-label">outputs.tf</span>
+          </div>
+        </div>
+        <!-- modules/ -->
+        <div class="repo-row" style="--level:1;">
+          <div class="repo-node tag-amber">
+            <span class="repo-icon">📁</span>
+            <span class="repo-label">modules/</span>
+            <span class="repo-desc">Terraform modules</span>
+          </div>
+        </div>
+
+        <div class="repo-row" style="--level:2;">
+          <div class="repo-node tag-red">
+            <span class="repo-icon">🛡️</span>
+            <span class="repo-label">foundations</span>
+            <span class="repo-desc">Logs bucket, CloudTrail, AWS Config, GuardDuty, Security Hub, Access Analyzer</span>
+          </div>
+        </div>
+
+        <div class="repo-row" style="--level:2;">
+          <div class="repo-node tag-blue">
+            <span class="repo-icon">🌐</span>
+            <span class="repo-label">network</span>
+            <span class="repo-desc">VPC, public/private subnets, NAT, endpoints, security groups</span>
+          </div>
+        </div>
+
+        <div class="repo-row" style="--level:2;">
+          <div class="repo-node tag-teal">
+            <span class="repo-icon">🧊</span>
+            <span class="repo-label">edge</span>
+            <span class="repo-desc">S3 web, CloudFront, WAFv2, Route 53, WAF logging</span>
+          </div>
+        </div>
+
+        <div class="repo-row" style="--level:2;">
+          <div class="repo-node tag-purple">
+            <span class="repo-icon">👤</span>
+            <span class="repo-label">identity</span>
+            <span class="repo-desc">Cognito User Pool, app client, Hosted UI domain</span>
+          </div>
+        </div>
+
+        <div class="repo-row" style="--level:2;">
+          <div class="repo-node tag-green">
+            <span class="repo-icon">🧱</span>
+            <span class="repo-label">data</span>
+            <span class="repo-desc">DynamoDB (profiles &amp; findings), KMS key, PII scanner &amp; Macie ingest Lambdas</span>
+          </div>
+        </div>
+
+        <div class="repo-row" style="--level:2;">
+          <div class="repo-node tag-amber">
+            <span class="repo-icon">💬</span>
+            <span class="repo-label">app_profile</span>
+            <span class="repo-desc">Profile &amp; findings APIs, auth exchange Lambda, IAM</span>
+          </div>
+        </div>
+
+        <div class="repo-row" style="--level:2;">
+          <div class="repo-node tag-amber">
+            <span class="repo-icon">📊</span>
+            <span class="repo-label">app_telemetry</span>
+            <span class="repo-desc">Telemetry Lambda, /activity route, CloudWatch log queries</span>
+          </div>
+        </div>
+
+        <div class="repo-row" style="--level:2;">
+          <div class="repo-node tag-pink">
+            <span class="repo-icon">📈</span>
+            <span class="repo-label">app_posture</span>
+            <span class="repo-desc">Security posture Lambda, /security/posture route, reads CloudTrail/GuardDuty/Security Hub/Config/WAF</span>
+          </div>
+        </div>
+
+        <div class="repo-row" style="--level:2;">
+          <div class="repo-node tag-slate">
+            <span class="repo-icon">🔗</span>
+            <span class="repo-label">cicd_iam</span>
+            <span class="repo-desc">GitHub OIDC, deploy role, IAM permissions boundary for Terraform</span>
+          </div>
+         </div>
+    <!-- apps/ -->
+    <div class="repo-row" style="--level:1;">
+      <div class="repo-node tag-amber">
+        <span class="repo-icon">📁</span>
+        <span class="repo-label">apps/</span>
+        <span class="repo-desc">Application code</span>
+      </div>
+    </div>
+    <div class="repo-row" style="--level:2;">
+      <div class="repo-node tag-amber">
+        <span class="repo-icon">🌍</span>
+        <span class="repo-label">web/</span>
+        <span class="repo-desc">HTML front end</span>
+      </div>
+    </div>
+    <div class="repo-row" style="--level:2;">
+      <div class="repo-node tag-amber">
+        <span class="repo-icon">🐍</span>
+        <span class="repo-label">lambda/</span>
+        <span class="repo-desc">Python Lambdas</span>
+      </div>
+    </div>
+    <!-- .github/ -->
+    <div class="repo-row" style="--level:1;">
+      <div class="repo-node tag-blue">
+        <span class="repo-icon">📁</span>
+        <span class="repo-label">.github/</span>
+        <span class="repo-desc">GitHub configuration</span>
+      </div>
+    </div>
+    <div class="repo-row" style="--level:2;">
+      <div class="repo-node tag-blue">
+        <span class="repo-icon">⚙️</span>
+        <span class="repo-label">workflows/</span>
+        <span class="repo-desc">CI/CD pipelines</span>
+      </div>
+    </div>
+
+    <!-- docs/ -->
+    <div class="repo-row" style="--level:1;">
+      <div class="repo-node tag-purple">
+        <span class="repo-icon">📚</span>
+        <span class="repo-label">docs/</span>
+        <span class="repo-desc">Documentation</span>
+      </div>
       </div>
     </section>
-  </div>
-
+    
   <footer>
     Deployed via GitHub Actions &nbsp;|&nbsp; Built on AWS serverless primitives and managed with Terraform
   </footer>
